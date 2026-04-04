@@ -86,6 +86,14 @@ type State = {
   sessionIngressToken: string | null | undefined
   oauthTokenFromFd: string | null | undefined
   apiKeyFromFd: string | null | undefined
+  // Multi-API provider configuration
+  apiProvider: 'claude' | 'gemini' | 'openai'
+  apiProviderConfig: {
+    apiKey: string | null
+    endpoint: string | null
+    model: string | null
+  } | null
+  apiProviderConfigured: boolean
   // Telemetry state
   meter: Meter | null
   sessionCounter: AttributedCounter | null
@@ -308,6 +316,9 @@ function getInitialState(): State {
     sessionIngressToken: undefined,
     oauthTokenFromFd: undefined,
     apiKeyFromFd: undefined,
+    apiProvider: 'claude',
+    apiProviderConfig: null,
+    apiProviderConfigured: false,
     flagSettingsPath: undefined,
     flagSettingsInline: null,
     allowedSettingSources: [
@@ -1169,6 +1180,38 @@ export function getApiKeyFromFd(): string | null | undefined {
 
 export function setApiKeyFromFd(key: string | null): void {
   STATE.apiKeyFromFd = key
+}
+
+export function getApiProvider(): 'claude' | 'gemini' | 'openai' {
+  return STATE.apiProvider
+}
+
+export function setApiProvider(provider: 'claude' | 'gemini' | 'openai'): void {
+  STATE.apiProvider = provider
+}
+
+export function getApiProviderConfig(): {
+  apiKey: string | null
+  endpoint: string | null
+  model: string | null
+} | null {
+  return STATE.apiProviderConfig
+}
+
+export function setApiProviderConfig(config: {
+  apiKey: string | null
+  endpoint: string | null
+  model: string | null
+} | null): void {
+  STATE.apiProviderConfig = config
+}
+
+export function isApiProviderConfigured(): boolean {
+  return STATE.apiProviderConfigured
+}
+
+export function setApiProviderConfigured(configured: boolean): void {
+  STATE.apiProviderConfigured = configured
 }
 
 export function setLastAPIRequest(
