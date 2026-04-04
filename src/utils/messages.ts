@@ -1172,87 +1172,111 @@ export type MessageLookups = {
 }
 
 /**
- * Build pre-computed lookups for efficient O(1) access to message relationships.
- * Call once per render, then use the lookups for all messages.
+ * PERF-004: Incremental lookup cache.
  *
- * This avoids O(n²) behavior from calling getProgressMessagesForMessage,
- * getSiblingToolUseIDs, and hasUnresolvedHooks for each message.
+ * Keyed on (normalizedMessages reference, messages reference). On each call we
+ * check whether the arrays are the same reference (no-op → return cached) or
+ * append-only (only process new tail entries). Any other mutation (insertion,
+ * deletion, out-of-order update) triggers a full rebuild.
+ *
+ * Internal mutable state that accumulates across renders:
+ *   - The 6 Map/Set structures from MessageLookups
+ *   - resolvedHookNames (intermediate; converted to counts after each update)
+ *   - toolUseIDsByMessageID / toolUseIDToMessageID (for sibling derivation)
+ *   - Previous array references and lengths
  */
-export function buildMessageLookups(
-  normalizedMessages: NormalizedMessage[],
+type IncrementalLookupCache = {
+  // Previous inputs
+  prevNormalizedMessages: NormalizedMessage[]
+  prevMessages: Message[]
+  // Intermediate state for incremental sibling derivation
+  toolUseIDsByMessageID: Map<string, Set<string>>
+  toolUseIDToMessageID: Map<string, string>
+  // Intermediate state for hook count derivation
+  resolvedHookNames: Map<string, Map<HookEvent, Set<string>>>
+  // Output lookups (mutated incrementally)
+  lookups: MessageLookups
+}
+
+let _lookupCache: IncrementalLookupCache | null = null
+
+/** Reset the incremental lookup cache (call when messages are deleted/mutated). */
+export function resetMessageLookupsCache(): void {
+  _lookupCache = null
+}
+
+/**
+ * Process a slice of the messages array (Message[]) to update the incremental
+ * sibling/toolUse maps. Returns nothing – mutates cache in place.
+ */
+function _processNewMessages(
+  cache: IncrementalLookupCache,
   messages: Message[],
-): MessageLookups {
-  // First pass: group assistant messages by ID and collect all tool use IDs per message
-  const toolUseIDsByMessageID = new Map<string, Set<string>>()
-  const toolUseIDToMessageID = new Map<string, string>()
-  const toolUseByToolUseID = new Map<string, ToolUseBlockParam>()
-  for (const msg of messages) {
-    if (msg.type === 'assistant') {
-      const id = msg.message.id
-      let toolUseIDs = toolUseIDsByMessageID.get(id)
-      if (!toolUseIDs) {
-        toolUseIDs = new Set()
-        toolUseIDsByMessageID.set(id, toolUseIDs)
-      }
-      for (const content of msg.message.content) {
-        if (content.type === 'tool_use') {
-          toolUseIDs.add(content.id)
-          toolUseIDToMessageID.set(content.id, id)
-          toolUseByToolUseID.set(content.id, content)
-        }
+  fromIndex: number,
+): void {
+  const { lookups } = cache
+  for (let i = fromIndex; i < messages.length; i++) {
+    const msg = messages[i]!
+    if (msg.type !== 'assistant') continue
+    const id = msg.message.id
+    let toolUseIDs = cache.toolUseIDsByMessageID.get(id)
+    if (!toolUseIDs) {
+      toolUseIDs = new Set()
+      cache.toolUseIDsByMessageID.set(id, toolUseIDs)
+    }
+    for (const content of msg.message.content) {
+      if (content.type === 'tool_use') {
+        toolUseIDs.add(content.id)
+        cache.toolUseIDToMessageID.set(content.id, id)
+        lookups.toolUseByToolUseID.set(content.id, content)
+        // Update sibling lookup: this tool use ID maps to the Set of all
+        // sibling IDs in this message (same Set reference, so existing
+        // entries see the updated set automatically).
+        lookups.siblingToolUseIDs.set(content.id, toolUseIDs)
       }
     }
   }
+}
 
-  // Build sibling lookup - each tool use ID maps to all sibling tool use IDs
-  const siblingToolUseIDs = new Map<string, Set<string>>()
-  for (const [toolUseID, messageID] of toolUseIDToMessageID) {
-    siblingToolUseIDs.set(toolUseID, toolUseIDsByMessageID.get(messageID)!)
-  }
+/**
+ * Process a slice of the normalizedMessages array to update progress/hook/
+ * tool-result lookups. Mutates cache in place.
+ */
+function _processNewNormalizedMessages(
+  cache: IncrementalLookupCache,
+  normalizedMessages: NormalizedMessage[],
+  fromIndex: number,
+): void {
+  const { lookups } = cache
+  for (let i = fromIndex; i < normalizedMessages.length; i++) {
+    const msg = normalizedMessages[i]!
 
-  // Single pass over normalizedMessages to build progress, hook, and tool result lookups
-  const progressMessagesByToolUseID = new Map<string, ProgressMessage[]>()
-  const inProgressHookCounts = new Map<string, Map<HookEvent, number>>()
-  // Track unique hook names per (toolUseID, hookEvent) to match getResolvedHookCount behavior.
-  // A single hook can produce multiple attachment messages (e.g., hook_success + hook_additional_context),
-  // so we deduplicate by hookName.
-  const resolvedHookNames = new Map<string, Map<HookEvent, Set<string>>>()
-  const toolResultByToolUseID = new Map<string, NormalizedMessage>()
-  // Track resolved/errored tool use IDs (replaces separate useMemos in Messages.tsx)
-  const resolvedToolUseIDs = new Set<string>()
-  const erroredToolUseIDs = new Set<string>()
-
-  for (const msg of normalizedMessages) {
     if (msg.type === 'progress') {
-      // Build progress messages lookup
       const toolUseID = msg.parentToolUseID
-      const existing = progressMessagesByToolUseID.get(toolUseID)
+      const existing = lookups.progressMessagesByToolUseID.get(toolUseID)
       if (existing) {
         existing.push(msg)
       } else {
-        progressMessagesByToolUseID.set(toolUseID, [msg])
+        lookups.progressMessagesByToolUseID.set(toolUseID, [msg])
       }
-
-      // Count in-progress hooks
       if (msg.data.type === 'hook_progress') {
         const hookEvent = msg.data.hookEvent
-        let byHookEvent = inProgressHookCounts.get(toolUseID)
+        let byHookEvent = lookups.inProgressHookCounts.get(toolUseID)
         if (!byHookEvent) {
           byHookEvent = new Map()
-          inProgressHookCounts.set(toolUseID, byHookEvent)
+          lookups.inProgressHookCounts.set(toolUseID, byHookEvent)
         }
         byHookEvent.set(hookEvent, (byHookEvent.get(hookEvent) ?? 0) + 1)
       }
     }
 
-    // Build tool result lookup and resolved/errored sets
     if (msg.type === 'user') {
       for (const content of msg.message.content) {
         if (content.type === 'tool_result') {
-          toolResultByToolUseID.set(content.tool_use_id, msg)
-          resolvedToolUseIDs.add(content.tool_use_id)
+          lookups.toolResultByToolUseID.set(content.tool_use_id, msg)
+          lookups.resolvedToolUseIDs.add(content.tool_use_id)
           if (content.is_error) {
-            erroredToolUseIDs.add(content.tool_use_id)
+            lookups.erroredToolUseIDs.add(content.tool_use_id)
           }
         }
       }
@@ -1260,13 +1284,11 @@ export function buildMessageLookups(
 
     if (msg.type === 'assistant') {
       for (const content of msg.message.content) {
-        // Track all server-side *_tool_result blocks (advisor, web_search,
-        // code_execution, mcp, etc.) — any block with tool_use_id is a result.
         if (
           'tool_use_id' in content &&
           typeof (content as { tool_use_id: string }).tool_use_id === 'string'
         ) {
-          resolvedToolUseIDs.add(
+          lookups.resolvedToolUseIDs.add(
             (content as { tool_use_id: string }).tool_use_id,
           )
         }
@@ -1276,22 +1298,21 @@ export function buildMessageLookups(
             content: { type: string }
           }
           if (result.content.type === 'advisor_tool_result_error') {
-            erroredToolUseIDs.add(result.tool_use_id)
+            lookups.erroredToolUseIDs.add(result.tool_use_id)
           }
         }
       }
     }
 
-    // Count resolved hooks (deduplicate by hookName)
     if (isHookAttachmentMessage(msg)) {
       const toolUseID = msg.attachment.toolUseID
       const hookEvent = msg.attachment.hookEvent
       const hookName = (msg.attachment as HookAttachmentWithName).hookName
       if (hookName !== undefined) {
-        let byHookEvent = resolvedHookNames.get(toolUseID)
+        let byHookEvent = cache.resolvedHookNames.get(toolUseID)
         if (!byHookEvent) {
           byHookEvent = new Map()
-          resolvedHookNames.set(toolUseID, byHookEvent)
+          cache.resolvedHookNames.set(toolUseID, byHookEvent)
         }
         let names = byHookEvent.get(hookEvent)
         if (!names) {
@@ -1299,55 +1320,138 @@ export function buildMessageLookups(
           byHookEvent.set(hookEvent, names)
         }
         names.add(hookName)
+        // Update resolvedHookCounts immediately for this toolUseID/hookEvent
+        let countsByEvent = lookups.resolvedHookCounts.get(toolUseID)
+        if (!countsByEvent) {
+          countsByEvent = new Map()
+          lookups.resolvedHookCounts.set(toolUseID, countsByEvent)
+        }
+        countsByEvent.set(hookEvent, names.size)
       }
     }
   }
+}
 
-  // Convert resolved hook name sets to counts
-  const resolvedHookCounts = new Map<string, Map<HookEvent, number>>()
-  for (const [toolUseID, byHookEvent] of resolvedHookNames) {
-    const countMap = new Map<HookEvent, number>()
-    for (const [hookEvent, names] of byHookEvent) {
-      countMap.set(hookEvent, names.size)
-    }
-    resolvedHookCounts.set(toolUseID, countMap)
-  }
-
-  // Mark orphaned server_tool_use / mcp_tool_use blocks (no matching
-  // result) as errored so the UI shows them as failed instead of
-  // perpetually spinning.
+/**
+ * Re-run the orphan-detection pass over all normalized messages (needed after
+ * any new entries are processed, since resolvedToolUseIDs may have changed).
+ */
+function _recomputeOrphans(
+  cache: IncrementalLookupCache,
+  normalizedMessages: NormalizedMessage[],
+  messages: Message[],
+): void {
+  const { lookups } = cache
   const lastMsg = messages.at(-1)
   const lastAssistantMsgId =
     lastMsg?.type === 'assistant' ? lastMsg.message.id : undefined
   for (const msg of normalizedMessages) {
     if (msg.type !== 'assistant') continue
-    // Skip blocks from the last original message if it's an assistant,
-    // since it may still be in progress.
     if (msg.message.id === lastAssistantMsgId) continue
     for (const content of msg.message.content) {
       if (
         (content.type === 'server_tool_use' ||
           content.type === 'mcp_tool_use') &&
-        !resolvedToolUseIDs.has((content as { id: string }).id)
+        !lookups.resolvedToolUseIDs.has((content as { id: string }).id)
       ) {
         const id = (content as { id: string }).id
-        resolvedToolUseIDs.add(id)
-        erroredToolUseIDs.add(id)
+        lookups.resolvedToolUseIDs.add(id)
+        lookups.erroredToolUseIDs.add(id)
       }
     }
   }
+}
 
-  return {
-    siblingToolUseIDs,
-    progressMessagesByToolUseID,
-    inProgressHookCounts,
-    resolvedHookCounts,
-    toolResultByToolUseID,
-    toolUseByToolUseID,
+/**
+ * Perform a full rebuild of the cache from scratch.
+ */
+function _fullRebuild(
+  normalizedMessages: NormalizedMessage[],
+  messages: Message[],
+): IncrementalLookupCache {
+  const toolUseIDsByMessageID = new Map<string, Set<string>>()
+  const toolUseIDToMessageID = new Map<string, string>()
+  const resolvedHookNames = new Map<string, Map<HookEvent, Set<string>>>()
+  const lookups: MessageLookups = {
+    siblingToolUseIDs: new Map(),
+    progressMessagesByToolUseID: new Map(),
+    inProgressHookCounts: new Map(),
+    resolvedHookCounts: new Map(),
+    toolResultByToolUseID: new Map(),
+    toolUseByToolUseID: new Map(),
     normalizedMessageCount: normalizedMessages.length,
-    resolvedToolUseIDs,
-    erroredToolUseIDs,
+    resolvedToolUseIDs: new Set(),
+    erroredToolUseIDs: new Set(),
   }
+  const cache: IncrementalLookupCache = {
+    prevNormalizedMessages: normalizedMessages,
+    prevMessages: messages,
+    toolUseIDsByMessageID,
+    toolUseIDToMessageID,
+    resolvedHookNames,
+    lookups,
+  }
+  _processNewMessages(cache, messages, 0)
+  _processNewNormalizedMessages(cache, normalizedMessages, 0)
+  _recomputeOrphans(cache, normalizedMessages, messages)
+  lookups.normalizedMessageCount = normalizedMessages.length
+  return cache
+}
+
+/**
+ * Build pre-computed lookups for efficient O(1) access to message relationships.
+ * Call once per render, then use the lookups for all messages.
+ *
+ * This avoids O(n²) behavior from calling getProgressMessagesForMessage,
+ * getSiblingToolUseIDs, and hasUnresolvedHooks for each message.
+ *
+ * PERF-004: Uses incremental accumulation – on append-only growth only new
+ * tail entries are processed. Full rebuild only occurs when input arrays are
+ * replaced wholesale or shrink (e.g., message deletion).
+ */
+export function buildMessageLookups(
+  normalizedMessages: NormalizedMessage[],
+  messages: Message[],
+): MessageLookups {
+  // Case 1: Same references → return cached lookups unchanged.
+  if (
+    _lookupCache !== null &&
+    _lookupCache.prevNormalizedMessages === normalizedMessages &&
+    _lookupCache.prevMessages === messages
+  ) {
+    return _lookupCache.lookups
+  }
+
+  // Case 2: Incremental append – both arrays only grew from the same prefix.
+  if (
+    _lookupCache !== null &&
+    normalizedMessages.length >= _lookupCache.prevNormalizedMessages.length &&
+    messages.length >= _lookupCache.prevMessages.length &&
+    // Verify prefix identity using the first element (cheap reference check).
+    // If either array is empty it can't have shrunk, so the check is vacuously true.
+    (_lookupCache.prevMessages.length === 0 ||
+      messages[0] === _lookupCache.prevMessages[0]) &&
+    (_lookupCache.prevNormalizedMessages.length === 0 ||
+      normalizedMessages[0] === _lookupCache.prevNormalizedMessages[0])
+  ) {
+    const prevMessagesLen = _lookupCache.prevMessages.length
+    const prevNormalizedLen = _lookupCache.prevNormalizedMessages.length
+    _processNewMessages(_lookupCache, messages, prevMessagesLen)
+    _processNewNormalizedMessages(
+      _lookupCache,
+      normalizedMessages,
+      prevNormalizedLen,
+    )
+    _recomputeOrphans(_lookupCache, normalizedMessages, messages)
+    _lookupCache.lookups.normalizedMessageCount = normalizedMessages.length
+    _lookupCache.prevMessages = messages
+    _lookupCache.prevNormalizedMessages = normalizedMessages
+    return _lookupCache.lookups
+  }
+
+  // Case 3: Full rebuild (deletion, insertion, or first call).
+  _lookupCache = _fullRebuild(normalizedMessages, messages)
+  return _lookupCache.lookups
 }
 
 /** Empty lookups for static rendering contexts that don't need real lookups. */
