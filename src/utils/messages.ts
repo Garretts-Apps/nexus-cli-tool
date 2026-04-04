@@ -1063,16 +1063,19 @@ function getResolvedHookCount(
 ): number {
   // Count unique hook names, since a single hook can produce multiple
   // attachment messages (e.g., hook_success + hook_additional_context)
-  const uniqueHookNames = new Set(
-    messages
-      .filter(
-        (_): _ is AttachmentMessage<HookAttachmentWithName> =>
-          isHookAttachmentMessage(_) &&
-          _.attachment.toolUseID === toolUseID &&
-          _.attachment.hookEvent === hookEvent,
+  // Merged filter+map into reduce to avoid intermediate array allocation
+  const uniqueHookNames = messages.reduce<Set<string>>((acc, _) => {
+    if (
+      isHookAttachmentMessage(_) &&
+      _.attachment.toolUseID === toolUseID &&
+      _.attachment.hookEvent === hookEvent
+    ) {
+      acc.add(
+        (_ as AttachmentMessage<HookAttachmentWithName>).attachment.hookName,
       )
-      .map(_ => _.attachment.hookName),
-  )
+    }
+    return acc
+  }, new Set())
   return uniqueHookNames.size
 }
 
@@ -1469,16 +1472,20 @@ export function hasUnresolvedHooksFromLookup(
 export function getToolUseIDs(
   normalizedMessages: NormalizedMessage[],
 ): Set<string> {
-  return new Set(
-    normalizedMessages
-      .filter(
-        (_): _ is NormalizedAssistantMessage<BetaToolUseBlock> =>
-          _.type === 'assistant' &&
-          Array.isArray(_.message.content) &&
-          _.message.content[0]?.type === 'tool_use',
+  // Merged filter+map into reduce to avoid intermediate array allocation
+  return normalizedMessages.reduce<Set<string>>((acc, _) => {
+    if (
+      _.type === 'assistant' &&
+      Array.isArray(_.message.content) &&
+      _.message.content[0]?.type === 'tool_use'
+    ) {
+      acc.add(
+        (_ as NormalizedAssistantMessage<BetaToolUseBlock>).message.content[0]
+          .id,
       )
-      .map(_ => _.message.content[0].id),
-  )
+    }
+    return acc
+  }, new Set())
 }
 
 /**
@@ -2862,9 +2869,12 @@ export function getAssistantMessageText(message: Message): string | null {
   // For content blocks array, extract and concatenate text blocks
   if (Array.isArray(message.message.content)) {
     return (
+      // Merged filter+map into reduce to avoid intermediate array allocation
       message.message.content
-        .filter(block => block.type === 'text')
-        .map(block => (block.type === 'text' ? block.text : ''))
+        .reduce<string[]>((acc, block) => {
+          if (block.type === 'text') acc.push(block.text)
+          return acc
+        }, [])
         .join('\n')
         .trim() || null
     )
@@ -2908,9 +2918,12 @@ export function extractTextContent(
   blocks: readonly { readonly type: string }[],
   separator = '',
 ): string {
+  // Merged filter+map into reduce to avoid intermediate array allocation
   return blocks
-    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-    .map(b => b.text)
+    .reduce<string[]>((acc, b) => {
+      if (b.type === 'text') acc.push((b as { type: 'text'; text: string }).text)
+      return acc
+    }, [])
     .join(separator)
 }
 
@@ -3771,9 +3784,12 @@ Read the team config to discover your teammates' names. Check the task list peri
 
       if (Array.isArray(attachment.prompt)) {
         // Handle content blocks (may include images)
+        // Merged filter+map into reduce to avoid intermediate array allocation
         const textContent = attachment.prompt
-          .filter((block): block is TextBlockParam => block.type === 'text')
-          .map(block => block.text)
+          .reduce<string[]>((acc, block) => {
+            if (block.type === 'text') acc.push((block as TextBlockParam).text)
+            return acc
+          }, [])
           .join('\n')
 
         const imageBlocks = attachment.prompt.filter(
@@ -5417,14 +5433,17 @@ export function ensureToolResultPairing(
     // Capture diagnostic info to help identify root cause
     const messageTypes = messages.map((m, idx) => {
       if (m.type === 'assistant') {
-        const toolUses = m.message.content
-          .filter(b => b.type === 'tool_use')
-          .map(b => (b as ToolUseBlock | ToolUseBlockParam).id)
-        const serverToolUses = m.message.content
-          .filter(
-            b => b.type === 'server_tool_use' || b.type === 'mcp_tool_use',
-          )
-          .map(b => (b as { id: string }).id)
+        // Merged filter+map into reduce to avoid intermediate array allocations
+        const toolUses = m.message.content.reduce<string[]>((acc, b) => {
+          if (b.type === 'tool_use')
+            acc.push((b as ToolUseBlock | ToolUseBlockParam).id)
+          return acc
+        }, [])
+        const serverToolUses = m.message.content.reduce<string[]>((acc, b) => {
+          if (b.type === 'server_tool_use' || b.type === 'mcp_tool_use')
+            acc.push((b as { id: string }).id)
+          return acc
+        }, [])
         const parts = [
           `id=${m.message.id}`,
           `tool_uses=[${toolUses.join(',')}]`,
@@ -5435,12 +5454,12 @@ export function ensureToolResultPairing(
         return `[${idx}] assistant(${parts.join(', ')})`
       }
       if (m.type === 'user' && Array.isArray(m.message.content)) {
-        const toolResults = m.message.content
-          .filter(
-            b =>
-              typeof b === 'object' && 'type' in b && b.type === 'tool_result',
-          )
-          .map(b => (b as ToolResultBlockParam).tool_use_id)
+        // Merged filter+map into reduce to avoid intermediate array allocation
+        const toolResults = m.message.content.reduce<string[]>((acc, b) => {
+          if (typeof b === 'object' && 'type' in b && b.type === 'tool_result')
+            acc.push((b as ToolResultBlockParam).tool_use_id)
+          return acc
+        }, [])
         if (toolResults.length > 0) {
           return `[${idx}] user(tool_results=[${toolResults.join(',')}])`
         }
