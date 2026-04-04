@@ -46,13 +46,14 @@ export async function openBrowser(url: string): Promise<boolean> {
 
     if (platform === 'win32') {
       if (browserEnv) {
-        // browsers require shell, else they will treat this as a file:/// handle
-        const { code } = await execFileNoThrow(browserEnv, [`"${url}"`])
+        // SEC-012: Pass URL as separate argument to avoid shell injection.
+        // Don't quote or concatenate the URL into shell string.
+        const { code } = await execFileNoThrow(browserEnv, [url])
         return code === 0
       }
       const { code } = await execFileNoThrow(
         'rundll32',
-        ['url,OpenURL', url],
+        ['url.dll,OpenURL', url],
         {},
       )
       return code === 0
