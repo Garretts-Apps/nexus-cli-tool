@@ -157,15 +157,53 @@ export function validateURL(url: string): boolean {
     return false
   }
 
+  // SSRF prevention: Block private IP ranges and localhost
+  const hostname = parsed.hostname || ''
+
+  // Block localhost and 127.x.x.x (loopback)
+  if (hostname === 'localhost' || hostname.startsWith('127.')) {
+    return false
+  }
+
+  // Block IPv6 loopback (::1)
+  if (hostname === '::1' || hostname === '[::1]') {
+    return false
+  }
+
+  // Block AWS IMDS (169.254.169.254)
+  if (hostname.startsWith('169.254.')) {
+    return false
+  }
+
+  // Block RFC 1918 private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+  if (hostname.startsWith('10.') ||
+      (hostname.startsWith('172.') && isPrivate172Range(hostname)) ||
+      hostname.startsWith('192.168.')) {
+    return false
+  }
+
+  // Block 0.0.0.0 and other special addresses
+  if (hostname === '0.0.0.0' || hostname === '::') {
+    return false
+  }
+
   // Initial filter that this isn't a privileged, company-internal URL
   // by checking that the hostname is publicly resolvable
-  const hostname = parsed.hostname
   const parts = hostname.split('.')
   if (parts.length < 2) {
     return false
   }
 
   return true
+}
+
+// Helper to check if IP is in 172.16.0.0/12 range
+function isPrivate172Range(ip: string): boolean {
+  const parts = ip.split('.')
+  if (parts.length !== 4) return false
+  const secondOctet = parseInt(parts[1], 10)
+  // 172.16.0.0 to 172.31.255.255
+  return secondOctet >= 16 && secondOctet <= 31
 }
 
 type DomainCheckResult =
