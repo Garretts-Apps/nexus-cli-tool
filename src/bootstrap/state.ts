@@ -15,9 +15,6 @@ import type { HookCallbackMatcher } from 'src/types/hooks.js'
 // (rule only checks ./ and / prefixes); explicit disable documents intent.
 // eslint-disable-next-line custom-rules/bootstrap-isolation
 import { randomUUID } from 'src/utils/crypto.js'
-import type { ModelSetting } from 'src/utils/model/model.js'
-import type { ModelStrings } from 'src/utils/model/modelStrings.js'
-import type { SettingSource } from 'src/utils/settings/constants.js'
 import type { PluginHookMatcher } from 'src/utils/settings/types.js'
 import { createSignal } from 'src/utils/signal.js'
 // Tier 4 auxiliary state reset functions (used by resetStateForTests)
@@ -33,6 +30,16 @@ import { resetPluginState } from 'src/state/pluginState.js'
 import { resetPromptCacheLatchState } from 'src/state/promptCacheLatches.js'
 // eslint-disable-next-line custom-rules/bootstrap-isolation
 import { resetApiDebugState } from 'src/state/apiDebug.js'
+// Tier 2 session configuration state (used by resetStateForTests + internal refs)
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import {
+  addModelUsageEntry,
+  getClientType as getClientType_sc,
+  getModelUsage as getModelUsage_sc,
+  resetSessionConfigState,
+  setModelUsage,
+  setSessionProjectDir as setSessionProjectDir_sc,
+} from 'src/state/sessionConfig.js'
 
 // Union type for registered hooks - can be SDK callbacks or native plugin hooks
 type RegisteredHookMatcher = HookCallbackMatcher | PluginHookMatcher
@@ -40,14 +47,6 @@ type RegisteredHookMatcher = HookCallbackMatcher | PluginHookMatcher
 import type { SessionId } from 'src/types/ids.js'
 
 // DO NOT ADD MORE STATE HERE - BE JUDICIOUS WITH GLOBAL STATE
-
-// dev: true on entries that came via --dangerously-load-development-channels.
-// The allowlist gate checks this per-entry (not the session-wide
-// hasDevChannels bit) so passing both flags doesn't let the dev dialog's
-// acceptance leak allowlist-bypass to the --channels entries.
-export type ChannelEntry =
-  | { kind: 'plugin'; name: string; marketplace: string; dev?: boolean }
-  | { kind: 'server'; name: string; dev?: boolean }
 
 export type AttributedCounter = {
   add(value: number, additionalAttributes?: Attributes): void
@@ -75,36 +74,7 @@ type State = {
   totalLinesRemoved: number
   hasUnknownModelCost: boolean
   cwd: string
-  modelUsage: { [modelName: string]: ModelUsage }
-  mainLoopModelOverride: ModelSetting | undefined
-  initialMainLoopModel: ModelSetting
-  modelStrings: ModelStrings | null
   isInteractive: boolean
-  kairosActive: boolean
-  // When true, ensureToolResultPairing throws on mismatch instead of
-  // repairing with synthetic placeholders. HFI opts in at startup so
-  // trajectories fail fast rather than conditioning the model on fake
-  // tool_results.
-  strictToolResultPairing: boolean
-  sdkAgentProgressSummariesEnabled: boolean
-  userMsgOptIn: boolean
-  clientType: string
-  sessionSource: string | undefined
-  questionPreviewFormat: 'markdown' | 'html' | undefined
-  flagSettingsPath: string | undefined
-  flagSettingsInline: Record<string, unknown> | null
-  allowedSettingSources: SettingSource[]
-  sessionIngressToken: string | null | undefined
-  oauthTokenFromFd: string | null | undefined
-  apiKeyFromFd: string | null | undefined
-  // Multi-API provider configuration
-  apiProvider: 'claude' | 'gemini' | 'openai'
-  apiProviderConfig: {
-    apiKey: string | null
-    endpoint: string | null
-    model: string | null
-  } | null
-  apiProviderConfigured: boolean
   // Telemetry state
   meter: Meter | null
   sessionCounter: AttributedCounter | null
@@ -165,32 +135,12 @@ type State = {
     durationMs: number
     timestamp: number
   }>
-  // SDK-provided betas (e.g., context-1m-2025-08-07)
-  sdkBetas: string[] | undefined
-  // Main thread agent type (from --agent flag or settings)
-  mainThreadAgentType: string | undefined
-  // Remote mode (--remote flag)
-  isRemoteMode: boolean
-  // Direct connect server URL (for display in header)
-  directConnectServerUrl: string | undefined
   // System prompt section cache state
   systemPromptSectionCache: Map<string, string | null>
   // Last date emitted to the model (for detecting midnight date changes)
   lastEmittedDate: string | null
   // Additional directories from --add-dir flag (for CLAUDE.md loading)
   additionalDirectoriesForClaudeMd: string[]
-  // Channel server allowlist from --channels flag (servers whose channel
-  // notifications should register this session). Parsed once in main.tsx —
-  // the tag decides trust model: 'plugin' → marketplace verification +
-  // allowlist, 'server' → allowlist always fails (schema is plugin-only).
-  // Either kind needs entry.dev to bypass allowlist.
-  allowedChannels: ChannelEntry[]
-  // True if any entry in allowedChannels came from
-  // --dangerously-load-development-channels (so ChannelsNotice can name the
-  // right flag in policy-blocked messages)
-  hasDevChannels: boolean
-  // Dir containing the session's `.jsonl`; null = derive from originalCwd.
-  sessionProjectDir: string | null
   // Current prompt ID (UUID) correlating a user prompt with subsequent OTel events
   promptId: string | null
   // Last API requestId for the main conversation chain (not subagents).
@@ -240,33 +190,7 @@ function getInitialState(): State {
     totalLinesRemoved: 0,
     hasUnknownModelCost: false,
     cwd: resolvedCwd,
-    modelUsage: {},
-    mainLoopModelOverride: undefined,
-    initialMainLoopModel: null,
-    modelStrings: null,
     isInteractive: false,
-    kairosActive: false,
-    strictToolResultPairing: false,
-    sdkAgentProgressSummariesEnabled: false,
-    userMsgOptIn: false,
-    clientType: 'cli',
-    sessionSource: undefined,
-    questionPreviewFormat: undefined,
-    sessionIngressToken: undefined,
-    oauthTokenFromFd: undefined,
-    apiKeyFromFd: undefined,
-    apiProvider: 'claude',
-    apiProviderConfig: null,
-    apiProviderConfigured: false,
-    flagSettingsPath: undefined,
-    flagSettingsInline: null,
-    allowedSettingSources: [
-      'userSettings',
-      'projectSettings',
-      'localSettings',
-      'flagSettings',
-      'policySettings',
-    ],
     // Telemetry state
     meter: null,
     sessionCounter: null,
@@ -314,30 +238,17 @@ function getInitialState(): State {
     teleportedSessionInfo: null,
     // Track slow operations for dev bar display
     slowOperations: [],
-    // SDK-provided betas
-    sdkBetas: undefined,
-    // Main thread agent type
-    mainThreadAgentType: undefined,
-    // Remote mode
-    isRemoteMode: false,
     ...(process.env.USER_TYPE === 'ant'
       ? {
           replBridgeActive: false,
         }
       : {}),
-    // Direct connect server URL
-    directConnectServerUrl: undefined,
     // System prompt section cache state
     systemPromptSectionCache: new Map(),
     // Last date emitted to the model
     lastEmittedDate: null,
     // Additional directories from --add-dir flag (for CLAUDE.md loading)
     additionalDirectoriesForClaudeMd: [],
-    // Channel server allowlist from --channels flag
-    allowedChannels: [],
-    hasDevChannels: false,
-    // Session project dir (null = derive from originalCwd)
-    sessionProjectDir: null,
     // Current prompt ID
     promptId: null,
     lastMainRequestId: undefined,
@@ -367,7 +278,7 @@ export function regenerateSessionId(
   // Regenerated sessions live in the current project: reset projectDir to
   // null so getTranscriptPath() derives from originalCwd.
   STATE.sessionId = randomUUID() as SessionId
-  STATE.sessionProjectDir = null
+  setSessionProjectDir_sc(null)
   return STATE.sessionId
 }
 
@@ -396,7 +307,7 @@ export function switchSession(
   // (plans.ts getPlanSlug defaults to getSessionId()).
   STATE.planSlugCache.delete(STATE.sessionId)
   STATE.sessionId = sessionId
-  STATE.sessionProjectDir = projectDir
+  setSessionProjectDir_sc(projectDir)
   sessionSwitched.emit(sessionId)
 }
 
@@ -409,15 +320,6 @@ const sessionSwitched = createSignal<[id: SessionId]>()
  * PID file's sessionId in sync with --resume.
  */
 export const onSessionSwitch = sessionSwitched.subscribe
-
-/**
- * Project directory the current session's transcript lives in, or `null` if
- * the session was created in the current project (common case — derive from
- * originalCwd). See `switchSession()`.
- */
-export function getSessionProjectDir(): string | null {
-  return STATE.sessionProjectDir
-}
 
 export function getOriginalCwd(): string {
   return STATE.originalCwd
@@ -454,14 +356,6 @@ export function setCwdState(cwd: string): void {
   STATE.cwd = cwd.normalize('NFC')
 }
 
-export function getDirectConnectServerUrl(): string | undefined {
-  return STATE.directConnectServerUrl
-}
-
-export function setDirectConnectServerUrl(url: string): void {
-  STATE.directConnectServerUrl = url
-}
-
 export function addToTotalDurationState(
   duration: number,
   durationWithoutRetries: number,
@@ -481,7 +375,7 @@ export function addToTotalCostState(
   modelUsage: ModelUsage,
   model: string,
 ): void {
-  STATE.modelUsage[model] = modelUsage
+  addModelUsageEntry(model, modelUsage)
   STATE.totalCostUSD += cost
 }
 
@@ -624,23 +518,23 @@ export function getTotalLinesRemoved(): number {
 }
 
 export function getTotalInputTokens(): number {
-  return sumBy(Object.values(STATE.modelUsage), 'inputTokens')
+  return sumBy(Object.values(getModelUsage_sc()), 'inputTokens')
 }
 
 export function getTotalOutputTokens(): number {
-  return sumBy(Object.values(STATE.modelUsage), 'outputTokens')
+  return sumBy(Object.values(getModelUsage_sc()), 'outputTokens')
 }
 
 export function getTotalCacheReadInputTokens(): number {
-  return sumBy(Object.values(STATE.modelUsage), 'cacheReadInputTokens')
+  return sumBy(Object.values(getModelUsage_sc()), 'cacheReadInputTokens')
 }
 
 export function getTotalCacheCreationInputTokens(): number {
-  return sumBy(Object.values(STATE.modelUsage), 'cacheCreationInputTokens')
+  return sumBy(Object.values(getModelUsage_sc()), 'cacheCreationInputTokens')
 }
 
 export function getTotalWebSearchRequests(): number {
-  return sumBy(Object.values(STATE.modelUsage), 'webSearchRequests')
+  return sumBy(Object.values(getModelUsage_sc()), 'webSearchRequests')
 }
 
 let outputTokensAtTurnStart = 0
@@ -692,45 +586,6 @@ export function getLastInteractionTime(): number {
   return STATE.lastInteractionTime
 }
 
-
-export function getModelUsage(): { [modelName: string]: ModelUsage } {
-  return STATE.modelUsage
-}
-
-export function getUsageForModel(model: string): ModelUsage | undefined {
-  return STATE.modelUsage[model]
-}
-
-/**
- * Gets the model override set from the --model CLI flag or after the user
- * updates their configured model.
- */
-export function getMainLoopModelOverride(): ModelSetting | undefined {
-  return STATE.mainLoopModelOverride
-}
-
-export function getInitialMainLoopModel(): ModelSetting {
-  return STATE.initialMainLoopModel
-}
-
-export function setMainLoopModelOverride(
-  model: ModelSetting | undefined,
-): void {
-  STATE.mainLoopModelOverride = model
-}
-
-export function setInitialMainLoopModel(model: ModelSetting): void {
-  STATE.initialMainLoopModel = model
-}
-
-export function getSdkBetas(): string[] | undefined {
-  return STATE.sdkBetas
-}
-
-export function setSdkBetas(betas: string[] | undefined): void {
-  STATE.sdkBetas = betas
-}
-
 export function resetCostState(): void {
   STATE.totalCostUSD = 0
   STATE.totalAPIDuration = 0
@@ -740,7 +595,7 @@ export function resetCostState(): void {
   STATE.totalLinesAdded = 0
   STATE.totalLinesRemoved = 0
   STATE.hasUnknownModelCost = false
-  STATE.modelUsage = {}
+  setModelUsage({})
   STATE.promptId = null
 }
 
@@ -776,7 +631,7 @@ export function setCostStateForRestore({
 
   // Restore per-model usage breakdown
   if (modelUsage) {
-    STATE.modelUsage = modelUsage
+    setModelUsage(modelUsage)
   }
 
   // Adjust startTime to make wall duration accumulate
@@ -804,22 +659,8 @@ export function resetStateForTests(): void {
   resetPluginState()
   resetPromptCacheLatchState()
   resetApiDebugState()
-}
-
-// You shouldn't use this directly. See src/utils/model/modelStrings.ts::getModelStrings()
-export function getModelStrings(): ModelStrings | null {
-  return STATE.modelStrings
-}
-
-// You shouldn't use this directly. See src/utils/model/modelStrings.ts
-export function setModelStrings(modelStrings: ModelStrings): void {
-  STATE.modelStrings = modelStrings
-}
-
-// Test utility function to reset model strings for re-initialization.
-// Separate from setModelStrings because we only want to accept 'null' in tests.
-export function resetModelStringsForTestingOnly() {
-  STATE.modelStrings = null
+  // Reset extracted Tier 2 session configuration state
+  resetSessionConfigState()
 }
 
 export function setMeter(
@@ -943,141 +784,8 @@ export function setIsInteractive(value: boolean): void {
   STATE.isInteractive = value
 }
 
-export function getClientType(): string {
-  return STATE.clientType
-}
-
-export function setClientType(type: string): void {
-  STATE.clientType = type
-}
-
-export function getSdkAgentProgressSummariesEnabled(): boolean {
-  return STATE.sdkAgentProgressSummariesEnabled
-}
-
-export function setSdkAgentProgressSummariesEnabled(value: boolean): void {
-  STATE.sdkAgentProgressSummariesEnabled = value
-}
-
-export function getKairosActive(): boolean {
-  return STATE.kairosActive
-}
-
-export function setKairosActive(value: boolean): void {
-  STATE.kairosActive = value
-}
-
-export function getStrictToolResultPairing(): boolean {
-  return STATE.strictToolResultPairing
-}
-
-export function setStrictToolResultPairing(value: boolean): void {
-  STATE.strictToolResultPairing = value
-}
-
-// Field name 'userMsgOptIn' avoids excluded-string substrings ('BriefTool',
-// 'SendUserMessage' — case-insensitive). All callers are inside feature()
-// guards so these accessors don't need their own (matches getKairosActive).
-export function getUserMsgOptIn(): boolean {
-  return STATE.userMsgOptIn
-}
-
-export function setUserMsgOptIn(value: boolean): void {
-  STATE.userMsgOptIn = value
-}
-
-export function getSessionSource(): string | undefined {
-  return STATE.sessionSource
-}
-
-export function setSessionSource(source: string): void {
-  STATE.sessionSource = source
-}
-
-export function getQuestionPreviewFormat(): 'markdown' | 'html' | undefined {
-  return STATE.questionPreviewFormat
-}
-
-export function setQuestionPreviewFormat(format: 'markdown' | 'html'): void {
-  STATE.questionPreviewFormat = format
-}
-
 export function getAgentColorMap(): Map<string, AgentColorName> {
   return STATE.agentColorMap
-}
-
-export function getFlagSettingsPath(): string | undefined {
-  return STATE.flagSettingsPath
-}
-
-export function setFlagSettingsPath(path: string | undefined): void {
-  STATE.flagSettingsPath = path
-}
-
-export function getFlagSettingsInline(): Record<string, unknown> | null {
-  return STATE.flagSettingsInline
-}
-
-export function setFlagSettingsInline(
-  settings: Record<string, unknown> | null,
-): void {
-  STATE.flagSettingsInline = settings
-}
-
-export function getSessionIngressToken(): string | null | undefined {
-  return STATE.sessionIngressToken
-}
-
-export function setSessionIngressToken(token: string | null): void {
-  STATE.sessionIngressToken = token
-}
-
-export function getOauthTokenFromFd(): string | null | undefined {
-  return STATE.oauthTokenFromFd
-}
-
-export function setOauthTokenFromFd(token: string | null): void {
-  STATE.oauthTokenFromFd = token
-}
-
-export function getApiKeyFromFd(): string | null | undefined {
-  return STATE.apiKeyFromFd
-}
-
-export function setApiKeyFromFd(key: string | null): void {
-  STATE.apiKeyFromFd = key
-}
-
-export function getApiProvider(): 'claude' | 'gemini' | 'openai' {
-  return STATE.apiProvider
-}
-
-export function setApiProvider(provider: 'claude' | 'gemini' | 'openai'): void {
-  STATE.apiProvider = provider
-}
-
-export function getApiProviderConfig(): {
-  apiKey: string | null
-  endpoint: string | null
-  model: string | null
-} | null {
-  return STATE.apiProviderConfig
-}
-
-export function setApiProviderConfig(config: {
-  apiKey: string | null
-  endpoint: string | null
-  model: string | null
-} | null): void {
-  STATE.apiProviderConfig = config
-}
-
-export function isApiProviderConfigured(): boolean {
-  return STATE.apiProviderConfigured
-}
-
-export function setApiProviderConfigured(configured: boolean): void {
-  STATE.apiProviderConfigured = configured
 }
 
 export function addToInMemoryErrorLog(errorInfo: {
@@ -1091,17 +799,9 @@ export function addToInMemoryErrorLog(errorInfo: {
   STATE.inMemoryErrorLog.push(errorInfo)
 }
 
-export function getAllowedSettingSources(): SettingSource[] {
-  return STATE.allowedSettingSources
-}
-
-export function setAllowedSettingSources(sources: SettingSource[]): void {
-  STATE.allowedSettingSources = sources
-}
-
 export function preferThirdPartyAuthentication(): boolean {
   // IDE extension should behave as 1P for authentication reasons.
-  return getIsNonInteractiveSession() && STATE.clientType !== 'claude-vscode'
+  return getIsNonInteractiveSession() && getClientType_sc() !== 'claude-vscode'
 }
 
 
@@ -1354,22 +1054,6 @@ export function getSlowOperations(): ReadonlyArray<{
   return STATE.slowOperations
 }
 
-export function getMainThreadAgentType(): string | undefined {
-  return STATE.mainThreadAgentType
-}
-
-export function setMainThreadAgentType(agentType: string | undefined): void {
-  STATE.mainThreadAgentType = agentType
-}
-
-export function getIsRemoteMode(): boolean {
-  return STATE.isRemoteMode
-}
-
-export function setIsRemoteMode(value: boolean): void {
-  STATE.isRemoteMode = value
-}
-
 // System prompt section accessors
 
 export function getSystemPromptSectionCache(): Map<string, string | null> {
@@ -1405,22 +1089,6 @@ export function setAdditionalDirectoriesForClaudeMd(
   directories: string[],
 ): void {
   STATE.additionalDirectoriesForClaudeMd = directories
-}
-
-export function getAllowedChannels(): ChannelEntry[] {
-  return STATE.allowedChannels
-}
-
-export function setAllowedChannels(entries: ChannelEntry[]): void {
-  STATE.allowedChannels = entries
-}
-
-export function getHasDevChannels(): boolean {
-  return STATE.hasDevChannels
-}
-
-export function setHasDevChannels(value: boolean): void {
-  STATE.hasDevChannels = value
 }
 
 export function getPromptId(): string | null {
@@ -1510,3 +1178,68 @@ export {
   resetApiDebugState,
 } from 'src/state/apiDebug.js'
 
+// ── Re-export Tier 2 session configuration state for backward compatibility ──
+// ARCH-002 Phase 4: 26 config fields extracted to src/state/sessionConfig.ts.
+// Consumers continue importing from 'src/bootstrap/state.js' — zero changes needed.
+
+export {
+  type ChannelEntry,
+  getModelUsage,
+  setModelUsage,
+  addModelUsageEntry,
+  getUsageForModel,
+  getMainLoopModelOverride,
+  setMainLoopModelOverride,
+  getInitialMainLoopModel,
+  setInitialMainLoopModel,
+  getModelStrings,
+  setModelStrings,
+  resetModelStringsForTestingOnly,
+  getClientType,
+  setClientType,
+  getSessionSource,
+  setSessionSource,
+  getQuestionPreviewFormat,
+  setQuestionPreviewFormat,
+  getFlagSettingsPath,
+  setFlagSettingsPath,
+  getFlagSettingsInline,
+  setFlagSettingsInline,
+  getAllowedSettingSources,
+  setAllowedSettingSources,
+  getSessionIngressToken,
+  setSessionIngressToken,
+  getOauthTokenFromFd,
+  setOauthTokenFromFd,
+  getApiKeyFromFd,
+  setApiKeyFromFd,
+  getApiProvider,
+  setApiProvider,
+  getApiProviderConfig,
+  setApiProviderConfig,
+  isApiProviderConfigured,
+  setApiProviderConfigured,
+  getSdkAgentProgressSummariesEnabled,
+  setSdkAgentProgressSummariesEnabled,
+  getKairosActive,
+  setKairosActive,
+  getStrictToolResultPairing,
+  setStrictToolResultPairing,
+  getUserMsgOptIn,
+  setUserMsgOptIn,
+  getSdkBetas,
+  setSdkBetas,
+  getAllowedChannels,
+  setAllowedChannels,
+  getHasDevChannels,
+  setHasDevChannels,
+  getSessionProjectDir,
+  setSessionProjectDir,
+  getMainThreadAgentType,
+  setMainThreadAgentType,
+  getIsRemoteMode,
+  setIsRemoteMode,
+  getDirectConnectServerUrl,
+  setDirectConnectServerUrl,
+  resetSessionConfigState,
+} from 'src/state/sessionConfig.js'
