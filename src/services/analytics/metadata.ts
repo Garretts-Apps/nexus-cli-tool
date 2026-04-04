@@ -40,20 +40,7 @@ import {
 } from '../../utils/teammate.js'
 import { feature } from 'bun:bundle'
 
-/**
- * Marker type for verifying analytics metadata doesn't contain sensitive data
- *
- * This type forces explicit verification that string values being logged
- * don't contain code snippets, file paths, or other sensitive information.
- *
- * The metadata is expected to be JSON-serializable.
- *
- * Usage: `myString as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS`
- *
- * The type is `never` which means it can never actually hold a value - this is
- * intentional as it's only used for type-casting to document developer intent.
- */
-export type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS = never
+export type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from 'src/services/analytics/index.js'
 
 /**
  * Sanitizes tool names for analytics logging to avoid PII exposure.
@@ -839,54 +826,32 @@ export function to1PEventFormat(
   }
 
   // Add optional env fields
-  if (envContext.remoteEnvironmentType) {
-    env.remote_environment_type = envContext.remoteEnvironmentType
+  const optionalEnvFields: Array<[keyof typeof envContext, keyof EnvironmentMetadata]> = [
+    ['remoteEnvironmentType',           'remote_environment_type'],
+    ['claudeCodeContainerId',           'claude_code_container_id'],
+    ['claudeCodeRemoteSessionId',       'claude_code_remote_session_id'],
+    ['githubEventName',                 'github_event_name'],
+    ['githubActionsRunnerEnvironment',  'github_actions_runner_environment'],
+    ['githubActionsRunnerOs',           'github_actions_runner_os'],
+    ['githubActionRef',                 'github_action_ref'],
+    ['wslVersion',                      'wsl_version'],
+    ['linuxDistroId',                   'linux_distro_id'],
+    ['linuxDistroVersion',              'linux_distro_version'],
+    ['linuxKernel',                     'linux_kernel'],
+    ['vcs',                             'vcs'],
+    ['versionBase',                     'version_base'],
+  ]
+  for (const [src, dst] of optionalEnvFields) {
+    if (envContext[src]) (env as Record<string, unknown>)[dst] = envContext[src]
   }
   if (feature('COWORKER_TYPE_TELEMETRY') && envContext.coworkerType) {
     env.coworker_type = envContext.coworkerType
-  }
-  if (envContext.claudeCodeContainerId) {
-    env.claude_code_container_id = envContext.claudeCodeContainerId
-  }
-  if (envContext.claudeCodeRemoteSessionId) {
-    env.claude_code_remote_session_id = envContext.claudeCodeRemoteSessionId
   }
   if (envContext.tags) {
     env.tags = envContext.tags
       .split(',')
       .map(t => t.trim())
       .filter(Boolean)
-  }
-  if (envContext.githubEventName) {
-    env.github_event_name = envContext.githubEventName
-  }
-  if (envContext.githubActionsRunnerEnvironment) {
-    env.github_actions_runner_environment =
-      envContext.githubActionsRunnerEnvironment
-  }
-  if (envContext.githubActionsRunnerOs) {
-    env.github_actions_runner_os = envContext.githubActionsRunnerOs
-  }
-  if (envContext.githubActionRef) {
-    env.github_action_ref = envContext.githubActionRef
-  }
-  if (envContext.wslVersion) {
-    env.wsl_version = envContext.wslVersion
-  }
-  if (envContext.linuxDistroId) {
-    env.linux_distro_id = envContext.linuxDistroId
-  }
-  if (envContext.linuxDistroVersion) {
-    env.linux_distro_version = envContext.linuxDistroVersion
-  }
-  if (envContext.linuxKernel) {
-    env.linux_kernel = envContext.linuxKernel
-  }
-  if (envContext.vcs) {
-    env.vcs = envContext.vcs
-  }
-  if (envContext.versionBase) {
-    env.version_base = envContext.versionBase
   }
 
   // Convert core fields to snake_case

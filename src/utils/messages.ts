@@ -58,7 +58,6 @@ import type {
   ToolUseSummaryMessage,
   UserMessage,
 } from '../types/message.js'
-// isAdvisorBlock moved to messageUtilities.ts
 import {
   isToolResultMessage,
   mergeAdjacentUserMessages,
@@ -83,8 +82,6 @@ import {
 import { formatNumber, formatTokens } from './format.js'
 import { jsonStringify } from './slowOperations.js'
 
-// Hook attachments type moved to messageUtilities.ts
-
 import type { APIError } from '@anthropic-ai/sdk'
 import type {
   BetaContentBlock,
@@ -105,12 +102,10 @@ import {
 import type { PermissionMode } from '../types/permissions.js'
 import { normalizeToolInput, normalizeToolInputForAPI } from './api.js'
 import { logAntError, logForDebugging } from './debug.js'
-// stripIdeContextTags moved to messageUtilities.ts
 import { validateImagesForAPI } from './imageValidation.js'
 import { safeParseJSON } from './json.js'
 import { logError } from './log.js'
 import { normalizeLegacyToolName } from './permissions/permissionRuleParser.js'
-// escapeRegExp moved to messageUtilities.ts
 
 // Lazy import to avoid circular dependency (teammateMailbox -> teammate -> ... -> messages)
 function getTeammateMailbox(): typeof import('./teammateMailbox.js') {
@@ -264,10 +259,6 @@ import {
   isToolUseRequestMessage,
 } from './messageUtilities.js'
 
-// withMemoryCorrectionHint, deriveShortMessageId, isClassifierDenial,
-// buildYoloRejectionMessage, buildClassifierUnavailableMessage, isSyntheticMessage
-// moved to messageUtilities.ts (re-exported above)
-
 function isSyntheticApiErrorMessage(
   message: Message,
 ): message is AssistantMessage & { isApiErrorMessage: true } {
@@ -277,10 +268,6 @@ function isSyntheticApiErrorMessage(
     message.message.model === SYNTHETIC_MODEL
   )
 }
-
-// getLastAssistantMessage, hasToolCallsInLastAssistantTurn, extractTag,
-// isNotEmptyMessage, isToolUseRequestMessage, isToolUseResultMessage
-// moved to messageUtilities.ts (re-exported above)
 
 // Re-order, to move result messages to be after their tool use messages
 export function reorderMessagesInUI(
@@ -457,38 +444,11 @@ export function reorderMessagesInUI(
 }
 
 
-// hasUnresolvedHooks, getToolResultIDs, getSiblingToolUseIDs
-// moved to messageUtilities.ts (re-exported above)
-
-// MessageLookups type moved to messageUtilities.ts (re-exported above)
-
-// IncrementalLookupCache, _lookupCache, resetMessageLookupsCache
-// moved to messageUtilities.ts (re-exported above)
-
-// _processNewMessages moved to messageUtilities.ts
-
-// _processNewNormalizedMessages, _recomputeOrphans, _fullRebuild,
-// buildMessageLookups, EMPTY_LOOKUPS, EMPTY_STRING_SET, buildSubagentLookups,
-// getSiblingToolUseIDsFromLookup, getProgressMessagesFromLookup,
-// hasUnresolvedHooksFromLookup, getToolUseIDs
-// moved to messageUtilities.ts (re-exported above)
-
-/**
- * Reorders messages so that attachments bubble up until they hit either:
- * - A tool call result (user message with tool_result content)
- * - Any assistant message
- */
-// reorderAttachmentsForAPI is now in messageNormalization.ts (re-exported above)
-
 export function isSystemLocalCommandMessage(
   message: Message,
 ): message is SystemLocalCommandMessage {
   return message.type === 'system' && message.subtype === 'local_command'
 }
-
-// stripUnavailableToolReferencesFromUserMessage, appendMessageTagToUserMessage,
-// stripToolReferenceBlocksFromUserMessage, stripCallerFieldFromAssistantMessage,
-// and contentHasToolReference are now in messageNormalization.ts (re-exported above).
 
 /**
  * Appends a [id:...] message ID tag to the last text block of a user message.
@@ -934,17 +894,6 @@ export function normalizeMessagesForAPI(
   return sanitized
 }
 
-// normalizeContentFromAPI, isEmptyMessageText, and stripPromptXMLTags are now
-// in messageNormalization.ts (re-exported above).
-
-// getToolUseID moved to messageUtilities.ts (re-exported above)
-
-// filterUnresolvedToolUses is in messageFiltering.ts (imported above)
-
-// getAssistantMessageText, getUserMessageText, textForResubmit
-// moved to messageUtilities.ts (re-exported above)
-
-
 // Re-export streaming types and handler from messageStream.ts (extracted in Phase 8)
 export {
   handleMessageFromStream,
@@ -1229,11 +1178,6 @@ export function createSystemAPIErrorMessage(
     uuid: randomUUID(),
   }
 }
-
-// isCompactBoundaryMessage, findLastCompactBoundaryIndex, getMessagesAfterCompactBoundary,
-// shouldShowUserMessage, isThinkingMessage, countToolCalls, hasSuccessfulToolCall
-// moved to messageUtilities.ts (re-exported above)
-
 
 /**
  * Creates a tool use summary message for SDK emission.
@@ -1599,5 +1543,3 @@ export function ensureToolResultPairing(
   return result
 }
 
-// stripAdvisorBlocks, wrapCommandText
-// moved to messageUtilities.ts (re-exported above)

