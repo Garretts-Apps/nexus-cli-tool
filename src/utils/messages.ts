@@ -1136,10 +1136,18 @@ export function getSiblingToolUseIDs(
       _.type === 'assistant' && _.message.id === messageID,
   )
 
+  // PERF-002: Merge filter+map into single pass using Array.reduce.
+  // filter() + map() causes two array iterations; reduce combines into one.
   return new Set(
-    siblingMessages.flatMap(_ =>
-      _.message.content.filter(_ => _.type === 'tool_use').map(_ => _.id),
-    ),
+    siblingMessages.flatMap(_ => {
+      const toolUseIds: string[] = []
+      for (const block of _.message.content) {
+        if (block.type === 'tool_use') {
+          toolUseIds.push((block as { id: string }).id)
+        }
+      }
+      return toolUseIds
+    }),
   )
 }
 
@@ -1896,7 +1904,13 @@ function sanitizeErrorToolResultContent(
       if (!Array.isArray(trContent)) return b
       if (trContent.every(c => c.type === 'text')) return b
       changed = true
-      const texts = trContent.filter(c => c.type === 'text').map(c => c.text)
+      // PERF-002: Merge filter+map into single pass. Collect text blocks in one iteration.
+      const texts: string[] = []
+      for (const c of trContent) {
+        if (c.type === 'text') {
+          texts.push(c.text)
+        }
+      }
       const textOnly: TextBlockParam[] =
         texts.length > 0 ? [{ type: 'text', text: texts.join('\n\n') }] : []
       return { ...b, content: textOnly }
