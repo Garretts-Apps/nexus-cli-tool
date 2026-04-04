@@ -1,5 +1,5 @@
 /**
- * Multi-API Adapter for Claude Code
+ * Multi-API Adapter for Nexus
  *
  * Supports multiple LLM providers: Anthropic Claude, Google Gemini, and OpenAI
  * Provides a unified interface for API interactions across different providers
