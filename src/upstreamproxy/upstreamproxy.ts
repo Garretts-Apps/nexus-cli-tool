@@ -19,6 +19,7 @@
  * Design doc: api-go/ccr/docs/plans/CCR_AUTH_DESIGN.md § "Week-1 pilot scope".
  */
 
+import { createHash } from 'crypto'
 import { mkdir, readFile, unlink, writeFile } from 'fs/promises'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -272,8 +273,47 @@ const CERTIFICATE_PINS: Record<string, string[]> = {
 }
 
 /**
+ * Compute the SPKI (SubjectPublicKeyInfo) SHA-256 pin for a PEM certificate.
+ * This extracts the DER-encoded public key info from the certificate and
+ * returns its base64-encoded SHA-256 hash, matching the format used by
+ * HTTP Public Key Pinning (RFC 7469).
+ */
+export function computeSpkiFingerprint(pemCert: string): string | null {
+  // Reject non-PEM input early
+  if (!isPemCertificate(pemCert)) {
+    return null
+  }
+
+  try {
+    // Node/Bun X509Certificate provides the public key in SPKI DER format
+    const x509 = new (require('crypto').X509Certificate)(pemCert)
+    const spkiDer = x509.publicKey.export({ type: 'spki', format: 'der' })
+    return createHash('sha256').update(spkiDer).digest('base64')
+  } catch {
+    // Fallback: compute a SHA-256 hash of the raw PEM body (base64 DER of
+    // the full certificate). Less precise than SPKI pinning but still
+    // detects cert substitution.
+    try {
+      const base64Body = pemCert
+        .replace(/-----BEGIN CERTIFICATE-----/g, '')
+        .replace(/-----END CERTIFICATE-----/g, '')
+        .replace(/\s/g, '')
+      if (!base64Body) return null
+      const derBuffer = Buffer.from(base64Body, 'base64')
+      if (derBuffer.length === 0) return null
+      return createHash('sha256').update(derBuffer).digest('base64')
+    } catch {
+      return null
+    }
+  }
+}
+
+/**
  * Validate certificate during fetch using public key pinning.
  * Blocks MITM attacks even if the attacker has a valid certificate.
+ *
+ * Computes the SPKI SHA-256 fingerprint of the downloaded certificate
+ * and checks it against the pinned values for the given hostname.
  */
 function validateCertificatePin(hostname: string, cert: string): boolean {
   const pins = CERTIFICATE_PINS[hostname]
@@ -286,17 +326,27 @@ function validateCertificatePin(hostname: string, cert: string): boolean {
   }
 
   try {
-    // Extract public key from certificate and compute SPKI SHA-256
-    const crypto = require('crypto') as typeof import('crypto')
-    // In production, use proper X.509 parsing. For now, we validate by checking
-    // that at least one pin matches the actual certificate returned by the server.
-    // The actual pin validation happens at the TLS layer in most Node.js/Bun
-    // implementations; this is a secondary check.
-    logForDebugging(
-      `[upstreamproxy] Certificate pin validation would require crypto operations`,
-      { level: 'debug' },
-    )
-    return true // Defer to TLS layer validation
+    const fingerprint = computeSpkiFingerprint(cert)
+    if (!fingerprint) {
+      logForDebugging(
+        `[upstreamproxy] failed to compute certificate fingerprint for ${hostname}`,
+        { level: 'warn' },
+      )
+      return false
+    }
+
+    const matched = pins.includes(fingerprint)
+    if (!matched) {
+      logForDebugging(
+        `[upstreamproxy] certificate pin mismatch for ${hostname}: got ${fingerprint}, expected one of [${pins.join(', ')}]`,
+        { level: 'warn' },
+      )
+    } else {
+      logForDebugging(
+        `[upstreamproxy] certificate pin validated for ${hostname}`,
+      )
+    }
+    return matched
   } catch (err) {
     logForDebugging(
       `[upstreamproxy] Certificate pin validation error: ${err instanceof Error ? err.message : String(err)}`,
@@ -389,6 +439,12 @@ async function downloadCaBundle(
     await mkdir(join(outPath, '..'), { recursive: true })
     await writeFile(outPath, systemCa + '\n' + ccrCa, 'utf8')
 
+    // SEC-007: Audit log for CA bundle modification
+    const fingerprint = computeSpkiFingerprint(ccrCa)
+    logForDebugging(
+      `[upstreamproxy] CA bundle modified: fingerprint=${fingerprint ?? 'unknown'}, ` +
+        `source=${hostname}, path=${outPath}, timestamp=${new Date().toISOString()}`,
+    )
     logForDebugging(
       `[upstreamproxy] CA bundle downloaded and validated successfully`,
     )
