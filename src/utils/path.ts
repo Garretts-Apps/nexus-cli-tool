@@ -126,12 +126,22 @@ export function getDirectoryForPath(path: string): string {
 
 /**
  * Checks if a path contains directory traversal patterns that navigate to parent directories.
+ * Uses path.normalize() to properly resolve all .. segments instead of regex pattern matching,
+ * which prevents edge case bypasses.
  *
  * @param path - The path to check for traversal patterns
- * @returns true if the path contains traversal (e.g., '../', '..\', or ends with '..')
+ * @returns true if the path contains traversal that escapes the base directory
  */
 export function containsPathTraversal(path: string): boolean {
-  return /(?:^|[\\/])\.\.(?:[\\/]|$)/.test(path)
+  try {
+    // Normalize the path to resolve . and .. segments
+    const normalized = normalize(path)
+    // If normalization results in a path starting with ../ or ..\, it's a traversal attempt
+    return normalized.startsWith('..') || normalized === '..'
+  } catch {
+    // If normalization fails, consider it unsafe
+    return true
+  }
 }
 
 // Re-export from the shared zero-dep source.

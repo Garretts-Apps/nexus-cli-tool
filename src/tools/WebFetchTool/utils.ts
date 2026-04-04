@@ -267,14 +267,11 @@ export function isPermittedRedirect(
       return false
     }
 
-    // Now check hostname conditions
-    // 1. Adding www. is allowed: example.com -> www.example.com
-    // 2. Removing www. is allowed: www.example.com -> example.com
-    // 3. Same host (with or without www.) is allowed: paths can change
-    const stripWww = (hostname: string) => hostname.replace(/^www\./, '')
-    const originalHostWithoutWww = stripWww(parsedOriginal.hostname)
-    const redirectHostWithoutWww = stripWww(parsedRedirect.hostname)
-    return originalHostWithoutWww === redirectHostWithoutWww
+    // Enforce exact hostname matching to prevent cross-origin redirect bypasses.
+    // Allowing www/non-www variants (e.g., example.com -> www.example.com) can be
+    // exploited if the subdomain is controlled separately. Only allow redirects
+    // to the exact same hostname.
+    return parsedRedirect.hostname === parsedOriginal.hostname
   } catch (_error) {
     return false
   }

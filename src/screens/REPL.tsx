@@ -308,11 +308,6 @@ const RECENT_SCROLL_REPIN_WINDOW_MS = 3000;
 // 100 files should be sufficient for most coding sessions while preventing
 // memory issues when working across many files in large projects
 
-function median(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2) : sorted[mid]!;
-}
 
 /**
  * Small component to display transcript mode footer with dynamic keybinding.
@@ -2831,8 +2826,8 @@ export function REPL({
       const classifierCount = getTurnClassifierCount();
       const turnMs = Date.now() - loadingStartTimeRef.current;
       setMessages(prev => [...prev, createApiMetricsMessage({
-        ttftMs: isMultiRequest ? median(ttfts) : ttfts[0]!,
-        otps: isMultiRequest ? median(otpsValues) : otpsValues[0]!,
+        ttftMs: isMultiRequest ? (() => { const sorted = [...ttfts].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2) : sorted[mid]!; })() : ttfts[0]!,
+        otps: isMultiRequest ? (() => { const sorted = [...otpsValues].sort((a, b) => a - b); const mid = Math.floor(sorted.length / 2); return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1]! + sorted[mid]!) / 2) : sorted[mid]!; })() : otpsValues[0]!,
         isP50: isMultiRequest,
         hookDurationMs: hookMs > 0 ? hookMs : undefined,
         hookCount: hookCount > 0 ? hookCount : undefined,

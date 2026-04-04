@@ -578,7 +578,14 @@ async function _executeApiKeyHelper(
   if (result.failed) {
     // reject:false — execa resolves on exit≠0/timeout, stderr is on result
     const why = result.timedOut ? 'timed out' : `exited ${result.exitCode}`
-    const stderr = result.stderr?.trim()
+    let stderr = result.stderr?.trim()
+    if (stderr) {
+      // Scrub common credentials from stderr before logging: API keys, tokens, passwords
+      stderr = stderr
+        .replace(/(['"])?(api[_-]?key|token|password|secret|authorization)(['"])?\s*[:=]\s*\S+/gi, '[REDACTED]')
+        .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
+        .replace(/Basic\s+\S+/gi, 'Basic [REDACTED]')
+    }
     throw new Error(stderr ? `${why}: ${stderr}` : why)
   }
   const stdout = result.stdout?.trim()

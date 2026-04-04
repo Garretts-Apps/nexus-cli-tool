@@ -402,12 +402,7 @@ export function sessionIdExists(sessionId: string): boolean {
   const projectDir = getProjectDir(getOriginalCwd())
   const sessionFile = join(projectDir, `${sessionId}.jsonl`)
   const fs = getFsImplementation()
-  try {
-    fs.statSync(sessionFile)
-    return true
-  } catch {
-    return false
-  }
+  return fs.existsSync(sessionFile)
 }
 
 // exported for testing
@@ -645,8 +640,11 @@ class Project {
   }
 
   private async drainWriteQueue(): Promise<void> {
+    const emptyQueues: string[] = []
+
     for (const [filePath, queue] of this.writeQueues) {
       if (queue.length === 0) {
+        emptyQueues.push(filePath)
         continue
       }
       const batch = queue.splice(0)
@@ -682,13 +680,13 @@ class Project {
           r()
         }
       }
+
+      emptyQueues.push(filePath)
     }
 
-    // Clean up empty queues
-    for (const [filePath, queue] of this.writeQueues) {
-      if (queue.length === 0) {
-        this.writeQueues.delete(filePath)
-      }
+    // Clean up empty queues in single pass
+    for (const filePath of emptyQueues) {
+      this.writeQueues.delete(filePath)
     }
   }
 
