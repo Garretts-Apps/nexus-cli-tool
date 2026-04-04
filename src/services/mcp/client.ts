@@ -4,7 +4,7 @@ import type {
   ContentBlockParam,
   MessageParam,
 } from '@anthropic-ai/sdk/resources/index.mjs'
-import { sanitizeMCPToolDefinition } from '../../utils/mcp/sanitizeToolMetadata'
+import { sanitizeMCPToolDefinition, sanitizeToolDescription } from '../../utils/mcp/sanitizeToolMetadata'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import {
   SSEClientTransport,
@@ -1158,13 +1158,14 @@ export const connectToServer = memoize(
       const capabilities = client.getServerCapabilities()
       const serverVersion = client.getServerVersion()
       const rawInstructions = client.getInstructions()
-      let instructions = rawInstructions
+      // Sanitize server instructions to prevent injection attacks (SEC-010)
+      let instructions = rawInstructions ? sanitizeToolDescription(rawInstructions) : undefined
       if (
-        rawInstructions &&
-        rawInstructions.length > MAX_MCP_DESCRIPTION_LENGTH
+        instructions &&
+        instructions.length > MAX_MCP_DESCRIPTION_LENGTH
       ) {
         instructions =
-          rawInstructions.slice(0, MAX_MCP_DESCRIPTION_LENGTH) + '… [truncated]'
+          instructions.slice(0, MAX_MCP_DESCRIPTION_LENGTH) + '… [truncated]'
         logMCPDebug(
           name,
           `Server instructions truncated from ${rawInstructions.length} to ${MAX_MCP_DESCRIPTION_LENGTH} chars`,
