@@ -649,27 +649,32 @@ class Project {
       }
       const batch = queue.splice(0)
 
-      let content = ''
+      const lines: string[] = []
       const resolvers: Array<() => void> = []
+      let currentChunkBytes = 0
 
       for (const { entry, resolve } of batch) {
         const line = jsonStringify(entry) + '\n'
 
-        if (content.length + line.length >= this.MAX_CHUNK_BYTES) {
+        if (currentChunkBytes + line.length >= this.MAX_CHUNK_BYTES && lines.length > 0) {
           // Flush chunk and resolve its entries before starting a new one
+          const content = lines.join('')
           await this.appendToFile(filePath, content)
           for (const r of resolvers) {
             r()
           }
           resolvers.length = 0
-          content = ''
+          lines.length = 0
+          currentChunkBytes = 0
         }
 
-        content += line
+        lines.push(line)
+        currentChunkBytes += line.length
         resolvers.push(resolve)
       }
 
-      if (content.length > 0) {
+      if (lines.length > 0) {
+        const content = lines.join('')
         await this.appendToFile(filePath, content)
         for (const r of resolvers) {
           r()
