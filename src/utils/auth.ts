@@ -4,7 +4,7 @@ import { execa } from 'execa'
 import { mkdir, stat } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
 import { join } from 'path'
-import { initializeSecureEnvironment } from './secureStartup.js'
+import { initializeSecureEnvironment, getCachedCredential } from './secureStartup.js'
 import { tryOrLog } from './errorClassification.js'
 import { CLAUDE_AI_PROFILE_SCOPE } from 'src/constants/oauth.js'
 import {
@@ -129,7 +129,7 @@ export function isAnthropicAuthEnabled(): boolean {
   // flip this — they'd cause a header mismatch with the proxy and a bogus
   // "invalid x-api-key" from the API. See src/ssh/sshAuthProxy.ts.
   if (process.env.ANTHROPIC_UNIX_SOCKET) {
-    return !!process.env.CLAUDE_CODE_OAUTH_TOKEN
+    return !!(getCachedCredential('CLAUDE_CODE_OAUTH_TOKEN') ?? process.env.CLAUDE_CODE_OAUTH_TOKEN)
   }
 
   const is3P =
@@ -185,7 +185,8 @@ export function getAuthTokenSource() {
     return { source: 'ANTHROPIC_AUTH_TOKEN' as const, hasToken: true }
   }
 
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  const oauthToken = getCachedCredential('CLAUDE_CODE_OAUTH_TOKEN') ?? process.env.CLAUDE_CODE_OAUTH_TOKEN
+  if (oauthToken) {
     return { source: 'CLAUDE_CODE_OAUTH_TOKEN' as const, hasToken: true }
   }
 
@@ -253,8 +254,9 @@ export function getAnthropicApiKeyWithSource(
   // the --settings flag. Never touches keychain, config file, or approval
   // lists. 3P (Bedrock/Vertex/Foundry) uses provider creds, not this path.
   if (isBareMode()) {
-    if (process.env.ANTHROPIC_API_KEY) {
-      return { key: process.env.ANTHROPIC_API_KEY, source: 'ANTHROPIC_API_KEY' }
+    const apiKey = getCachedCredential('ANTHROPIC_API_KEY') ?? process.env.ANTHROPIC_API_KEY
+    if (apiKey) {
+      return { key: apiKey, source: 'ANTHROPIC_API_KEY' }
     }
     if (getConfiguredApiKeyHelper()) {
       return {
@@ -271,7 +273,7 @@ export function getAnthropicApiKeyWithSource(
   // https://anthropic.slack.com/archives/C08428WSLKV/p1747331773214779
   const apiKeyEnv = isRunningOnHomespace()
     ? undefined
-    : process.env.ANTHROPIC_API_KEY
+    : getCachedCredential('ANTHROPIC_API_KEY') ?? process.env.ANTHROPIC_API_KEY
 
   // Always check for direct environment variable when the user ran claude --print.
   // This is useful for CI, etc.
@@ -294,7 +296,7 @@ export function getAnthropicApiKeyWithSource(
 
     if (
       !apiKeyEnv &&
-      !process.env.CLAUDE_CODE_OAUTH_TOKEN &&
+      !(getCachedCredential('CLAUDE_CODE_OAUTH_TOKEN') ?? process.env.CLAUDE_CODE_OAUTH_TOKEN) &&
       !process.env.CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR
     ) {
       throw new Error(
@@ -1292,10 +1294,11 @@ export const getClaudeAIOAuthTokens = memoize((): OAuthTokens | null => {
   if (isBareMode()) return null
 
   // Check for force-set OAuth token from environment variable
-  if (process.env.CLAUDE_CODE_OAUTH_TOKEN) {
+  const cachedOAuthToken = getCachedCredential('CLAUDE_CODE_OAUTH_TOKEN') ?? process.env.CLAUDE_CODE_OAUTH_TOKEN
+  if (cachedOAuthToken) {
     // Return an inference-only token (unknown refresh and expiry)
     return {
-      accessToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      accessToken: cachedOAuthToken,
       refreshToken: null,
       expiresAt: null,
       scopes: ['user:inference'],
@@ -1436,7 +1439,7 @@ export async function getClaudeAIOAuthTokensAsync(): Promise<OAuthTokens | null>
 
   // Env var and FD tokens are sync and don't hit the keychain
   if (
-    process.env.CLAUDE_CODE_OAUTH_TOKEN ||
+    (getCachedCredential('CLAUDE_CODE_OAUTH_TOKEN') ?? process.env.CLAUDE_CODE_OAUTH_TOKEN) ||
     getOAuthTokenFromFileDescriptor()
   ) {
     return getClaudeAIOAuthTokens()
