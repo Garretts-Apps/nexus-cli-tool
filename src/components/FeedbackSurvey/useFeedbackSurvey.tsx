@@ -46,8 +46,15 @@ export function useFeedbackSurvey(messages: Message[], isLoading: boolean, submi
   handleSelect: (selected: FeedbackSurveyResponse) => boolean;
   handleTranscriptSelect: (selected: TranscriptShareResponse) => void;
 } {
+  // PERF-003: Memoize lastAssistantMessage to avoid recomputing on every render.
+  // getLastAssistantMessage scans from array end (O(N) worst case), so avoid
+  // redundant scans when messages haven't changed.
+  const lastAssistantMessageId = useMemo(
+    () => getLastAssistantMessage(messages)?.message?.id || 'unknown',
+    [messages],
+  );
   const lastAssistantMessageIdRef = useRef('unknown');
-  lastAssistantMessageIdRef.current = getLastAssistantMessage(messages)?.message?.id || 'unknown';
+  lastAssistantMessageIdRef.current = lastAssistantMessageId;
   const [feedbackSurvey, setFeedbackSurvey] = useState<{
     timeLastShown: number | null;
     submitCountAtLastAppearance: number | null;
