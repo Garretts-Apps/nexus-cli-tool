@@ -68,7 +68,7 @@ describe('expandPath', () => {
   it('expands ~/path to path within home directory', () => {
     const result = expandPath('~/Documents')
     expect(result).toContain('Documents')
-    expect(result).not.toStartWith('~')
+    expect(!result.startsWith('~')).toBe(true)
   })
 
   it('returns absolute paths normalized', () => {

@@ -86,10 +86,12 @@ export function withMemoryCorrectionHint(message: string): string {
  * Deterministic: same UUID always produces the same short ID.
  */
 export function deriveShortMessageId(uuid: string): string {
-  // Take first 10 hex chars from the UUID (skipping dashes)
-  const hex = uuid.replace(/-/g, '').slice(0, 10)
+  // Take last 12 hex chars from the UUID (skipping dashes)
+  // UUIDs have entropy in the last portion, and this ensures different UUIDs produce different IDs
+  const hex = uuid.replace(/-/g, '')
+  const chars = hex.slice(-12)
   // Convert to base36 for shorter representation, take 6 chars
-  return parseInt(hex, 16).toString(36).slice(0, 6)
+  return parseInt(chars, 16).toString(36).slice(0, 6)
 }
 
 /**
