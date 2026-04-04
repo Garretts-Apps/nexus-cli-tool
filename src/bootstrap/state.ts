@@ -19,9 +19,17 @@ import { randomUUID } from 'src/utils/crypto.js'
 import type { ModelSetting } from 'src/utils/model/model.js'
 import type { ModelStrings } from 'src/utils/model/modelStrings.js'
 import type { SettingSource } from 'src/utils/settings/constants.js'
-import { resetSettingsCache } from 'src/utils/settings/settingsCache.js'
 import type { PluginHookMatcher } from 'src/utils/settings/types.js'
 import { createSignal } from 'src/utils/signal.js'
+// Tier 4 auxiliary state reset functions (used by resetStateForTests)
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetCronState } from 'src/state/cronState.js'
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetTeamState } from 'src/state/teamState.js'
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetSkillState } from 'src/state/skillState.js'
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetPluginState } from 'src/state/pluginState.js'
 
 // Union type for registered hooks - can be SDK callbacks or native plugin hooks
 type RegisteredHookMatcher = HookCallbackMatcher | PluginHookMatcher
@@ -131,30 +139,8 @@ type State = {
   cachedClaudeMdContent: string | null
   // In-memory error log for recent errors
   inMemoryErrorLog: Array<{ error: string; timestamp: string }>
-  // Session-only plugins from --plugin-dir flag
-  inlinePlugins: Array<string>
-  // Explicit --chrome / --no-chrome flag value (undefined = not set on CLI)
-  chromeFlagOverride: boolean | undefined
-  // Use cowork_plugins directory instead of plugins (--cowork flag or env var)
-  useCoworkPlugins: boolean
   // Session-only bypass permissions mode flag (not persisted)
   sessionBypassPermissionsMode: boolean
-  // Session-only flag gating the .claude/scheduled_tasks.json watcher
-  // (useScheduledTasks). Set by cronScheduler.start() when the JSON has
-  // entries, or by CronCreateTool. Not persisted.
-  scheduledTasksEnabled: boolean
-  // Session-only cron tasks created via CronCreate with durable: false.
-  // Fire on schedule like file-backed tasks but are never written to
-  // .claude/scheduled_tasks.json — they die with the process. Typed via
-  // SessionCronTask below (not importing from cronTasks.ts keeps
-  // bootstrap a leaf of the import DAG).
-  sessionCronTasks: SessionCronTask[]
-  // Teams created this session via TeamCreate. cleanupSessionTeams()
-  // removes these on gracefulShutdown so subagent-created teams don't
-  // persist on disk forever (gh-32730). TeamDelete removes entries to
-  // avoid double-cleanup. Lives here (not teamHelpers.ts) so
-  // resetStateForTests() clears it between tests.
-  sessionCreatedTeams: Set<string>
   // Session-only trust flag for home directory (not persisted to disk)
   // When running from home dir, trust dialog is shown but not saved to disk.
   // This flag allows features requiring trust to work during the session.
@@ -181,18 +167,6 @@ type State = {
     hasLoggedFirstMessage: boolean
     sessionId: string | null
   } | null
-  // Track invoked skills for preservation across compaction
-  // Keys are composite: `${agentId ?? ''}:${skillName}` to prevent cross-agent overwrites
-  invokedSkills: Map<
-    string,
-    {
-      skillName: string
-      skillPath: string
-      content: string
-      invokedAt: number
-      agentId: string | null
-    }
-  >
   // Track slow operations for dev bar display (ant-only)
   slowOperations: Array<{
     operation: string
@@ -358,18 +332,8 @@ function getInitialState(): State {
     cachedClaudeMdContent: null,
     // In-memory error log for recent errors
     inMemoryErrorLog: [],
-    // Session-only plugins from --plugin-dir flag
-    inlinePlugins: [],
-    // Explicit --chrome / --no-chrome flag value (undefined = not set on CLI)
-    chromeFlagOverride: undefined,
-    // Use cowork_plugins directory instead of plugins
-    useCoworkPlugins: false,
     // Session-only bypass permissions mode flag (not persisted)
     sessionBypassPermissionsMode: false,
-    // Scheduled tasks disabled until flag or dialog enables them
-    scheduledTasksEnabled: false,
-    sessionCronTasks: [],
-    sessionCreatedTeams: new Set(),
     // Session-only trust flag (not persisted to disk)
     sessionTrustAccepted: false,
     // Session-only flag to disable session persistence to disk
@@ -389,8 +353,6 @@ function getInitialState(): State {
     planSlugCache: new Map(),
     // Track teleported session for reliability logging
     teleportedSessionInfo: null,
-    // Track invoked skills for preservation across compaction
-    invokedSkills: new Map(),
     // Track slow operations for dev bar display
     slowOperations: [],
     // SDK-provided betas
@@ -795,44 +757,6 @@ export function getLastInteractionTime(): number {
   return STATE.lastInteractionTime
 }
 
-// Scroll drain suspension — background intervals check this before doing work
-// so they don't compete with scroll frames for the event loop. Set by
-// ScrollBox scrollBy/scrollTo, cleared SCROLL_DRAIN_IDLE_MS after the last
-// scroll event. Module-scope (not in STATE) — ephemeral hot-path flag, no
-// test-reset needed since the debounce timer self-clears.
-let scrollDraining = false
-let scrollDrainTimer: ReturnType<typeof setTimeout> | undefined
-const SCROLL_DRAIN_IDLE_MS = 150
-
-/** Mark that a scroll event just happened. Background intervals gate on
- *  getIsScrollDraining() and skip their work until the debounce clears. */
-export function markScrollActivity(): void {
-  scrollDraining = true
-  if (scrollDrainTimer) clearTimeout(scrollDrainTimer)
-  scrollDrainTimer = setTimeout(() => {
-    scrollDraining = false
-    scrollDrainTimer = undefined
-  }, SCROLL_DRAIN_IDLE_MS)
-  scrollDrainTimer.unref?.()
-}
-
-/** True while scroll is actively draining (within 150ms of last event).
- *  Intervals should early-return when this is set — the work picks up next
- *  tick after scroll settles. */
-export function getIsScrollDraining(): boolean {
-  return scrollDraining
-}
-
-/** Await this before expensive one-shot work (network, subprocess) that could
- *  coincide with scroll. Resolves immediately if not scrolling; otherwise
- *  polls at the idle interval until the flag clears. */
-export async function waitForScrollIdle(): Promise<void> {
-  while (scrollDraining) {
-    // bootstrap-isolation forbids importing sleep() from src/utils/
-    // eslint-disable-next-line no-restricted-syntax
-    await new Promise(r => setTimeout(r, SCROLL_DRAIN_IDLE_MS).unref?.())
-  }
-}
 
 export function getModelUsage(): { [modelName: string]: ModelUsage } {
   return STATE.modelUsage
@@ -938,6 +862,11 @@ export function resetStateForTests(): void {
   currentTurnTokenBudget = null
   budgetContinuationCount = 0
   sessionSwitched.clear()
+  // Reset extracted Tier 4 auxiliary state modules
+  resetCronState()
+  resetTeamState()
+  resetSkillState()
+  resetPluginState()
 }
 
 // You shouldn't use this directly. See src/utils/model/modelStrings.ts::getModelStrings()
@@ -1279,30 +1208,6 @@ export function preferThirdPartyAuthentication(): boolean {
   return getIsNonInteractiveSession() && STATE.clientType !== 'claude-vscode'
 }
 
-export function setInlinePlugins(plugins: Array<string>): void {
-  STATE.inlinePlugins = plugins
-}
-
-export function getInlinePlugins(): Array<string> {
-  return STATE.inlinePlugins
-}
-
-export function setChromeFlagOverride(value: boolean | undefined): void {
-  STATE.chromeFlagOverride = value
-}
-
-export function getChromeFlagOverride(): boolean | undefined {
-  return STATE.chromeFlagOverride
-}
-
-export function setUseCoworkPlugins(value: boolean): void {
-  STATE.useCoworkPlugins = value
-  resetSettingsCache()
-}
-
-export function getUseCoworkPlugins(): boolean {
-  return STATE.useCoworkPlugins
-}
 
 export function setSessionBypassPermissionsMode(enabled: boolean): void {
   STATE.sessionBypassPermissionsMode = enabled
@@ -1312,50 +1217,6 @@ export function getSessionBypassPermissionsMode(): boolean {
   return STATE.sessionBypassPermissionsMode
 }
 
-export function setScheduledTasksEnabled(enabled: boolean): void {
-  STATE.scheduledTasksEnabled = enabled
-}
-
-export function getScheduledTasksEnabled(): boolean {
-  return STATE.scheduledTasksEnabled
-}
-
-export type SessionCronTask = {
-  id: string
-  cron: string
-  prompt: string
-  createdAt: number
-  recurring?: boolean
-  /**
-   * When set, the task was created by an in-process teammate (not the team lead).
-   * The scheduler routes fires to that teammate's pendingUserMessages queue
-   * instead of the main REPL command queue. Session-only — never written to disk.
-   */
-  agentId?: string
-}
-
-export function getSessionCronTasks(): SessionCronTask[] {
-  return STATE.sessionCronTasks
-}
-
-export function addSessionCronTask(task: SessionCronTask): void {
-  STATE.sessionCronTasks.push(task)
-}
-
-/**
- * Returns the number of tasks actually removed. Callers use this to skip
- * downstream work (e.g. the disk read in removeCronTasks) when all ids
- * were accounted for here.
- */
-export function removeSessionCronTasks(ids: readonly string[]): number {
-  if (ids.length === 0) return 0
-  const idSet = new Set(ids)
-  const remaining = STATE.sessionCronTasks.filter(t => !idSet.has(t.id))
-  const removed = STATE.sessionCronTasks.length - remaining.length
-  if (removed === 0) return 0
-  STATE.sessionCronTasks = remaining
-  return removed
-}
 
 export function setSessionTrustAccepted(accepted: boolean): void {
   STATE.sessionTrustAccepted = accepted
@@ -1512,9 +1373,6 @@ export function getPlanSlugCache(): Map<string, string> {
   return STATE.planSlugCache
 }
 
-export function getSessionCreatedTeams(): Set<string> {
-  return STATE.sessionCreatedTeams
-}
 
 // Teleported session tracking for reliability logging
 export function setTeleportedSessionInfo(info: {
@@ -1541,69 +1399,6 @@ export function markFirstTeleportMessageLogged(): void {
   }
 }
 
-// Invoked skills tracking for preservation across compaction
-export type InvokedSkillInfo = {
-  skillName: string
-  skillPath: string
-  content: string
-  invokedAt: number
-  agentId: string | null
-}
-
-export function addInvokedSkill(
-  skillName: string,
-  skillPath: string,
-  content: string,
-  agentId: string | null = null,
-): void {
-  const key = `${agentId ?? ''}:${skillName}`
-  STATE.invokedSkills.set(key, {
-    skillName,
-    skillPath,
-    content,
-    invokedAt: Date.now(),
-    agentId,
-  })
-}
-
-export function getInvokedSkills(): Map<string, InvokedSkillInfo> {
-  return STATE.invokedSkills
-}
-
-export function getInvokedSkillsForAgent(
-  agentId: string | undefined | null,
-): Map<string, InvokedSkillInfo> {
-  const normalizedId = agentId ?? null
-  const filtered = new Map<string, InvokedSkillInfo>()
-  for (const [key, skill] of STATE.invokedSkills) {
-    if (skill.agentId === normalizedId) {
-      filtered.set(key, skill)
-    }
-  }
-  return filtered
-}
-
-export function clearInvokedSkills(
-  preservedAgentIds?: ReadonlySet<string>,
-): void {
-  if (!preservedAgentIds || preservedAgentIds.size === 0) {
-    STATE.invokedSkills.clear()
-    return
-  }
-  for (const [key, skill] of STATE.invokedSkills) {
-    if (skill.agentId === null || !preservedAgentIds.has(skill.agentId)) {
-      STATE.invokedSkills.delete(key)
-    }
-  }
-}
-
-export function clearInvokedSkillsForAgent(agentId: string): void {
-  for (const [key, skill] of STATE.invokedSkills) {
-    if (skill.agentId === agentId) {
-      STATE.invokedSkills.delete(key)
-    }
-  }
-}
 
 // Slow operations tracking for dev bar
 const MAX_SLOW_OPERATIONS = 10
@@ -1798,4 +1593,52 @@ export function getPromptId(): string | null {
 export function setPromptId(id: string | null): void {
   STATE.promptId = id
 }
+
+// ── Re-export Tier 4 auxiliary state modules for backward compatibility ──
+// ARCH-002 Phase 1: These were extracted to reduce cognitive load in this file.
+// Consumers continue importing from 'src/bootstrap/state.js' — zero changes needed.
+
+export {
+  type SessionCronTask,
+  setScheduledTasksEnabled,
+  getScheduledTasksEnabled,
+  getSessionCronTasks,
+  addSessionCronTask,
+  removeSessionCronTasks,
+  resetCronState,
+} from 'src/state/cronState.js'
+
+export {
+  getSessionCreatedTeams,
+  addSessionCreatedTeam,
+  removeSessionCreatedTeam,
+  hasSessionCreatedTeam,
+  resetTeamState,
+} from 'src/state/teamState.js'
+
+export {
+  type InvokedSkillInfo,
+  addInvokedSkill,
+  getInvokedSkills,
+  getInvokedSkillsForAgent,
+  clearInvokedSkills,
+  clearInvokedSkillsForAgent,
+  resetSkillState,
+} from 'src/state/skillState.js'
+
+export {
+  setInlinePlugins,
+  getInlinePlugins,
+  setChromeFlagOverride,
+  getChromeFlagOverride,
+  setUseCoworkPlugins,
+  getUseCoworkPlugins,
+  resetPluginState,
+} from 'src/state/pluginState.js'
+
+export {
+  markScrollActivity,
+  getIsScrollDraining,
+  waitForScrollIdle,
+} from 'src/state/scrollDrain.js'
 
