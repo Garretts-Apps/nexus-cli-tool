@@ -1646,13 +1646,29 @@ export function REPL({
     setMessages(prev => [...prev, createSystemMessage(`Worktree creation took ${secs}s. For large repos, set \`worktree.sparsePaths\` in .claude/settings.json to check out only the directories you need — e.g. \`{"worktree": {"sparsePaths": ["src", "packages/foo"]}}\`.`, 'info')]);
   }, [setMessages]);
 
-  // Hide spinner when the only in-progress tool is Sleep
+  // Hide spinner when the only in-progress tool is Sleep.
+  // Split into two memos so that streaming token deltas (which mutate existing
+  // message content but do NOT change messages.length) do NOT trigger a
+  // re-scan of the entire messages array.
+  //
+  // lastAssistantMessage: re-runs only when a new message is added (length
+  // change). During streaming, content is patched in place and messagesRef
+  // always holds the latest value, so we read from the ref inside the memo
+  // body instead of depending on the live `messages` array.
+  const lastAssistantMessage = useMemo(() => {
+    return messagesRef.current.findLast(m => m.type === 'assistant') ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length]);
+
+  // onlySleepToolActive: re-runs only when inProgressToolUseIDs changes (i.e.
+  // a tool starts or finishes), not on every streaming token.
   const onlySleepToolActive = useMemo(() => {
-    const lastAssistant = messages.findLast(m => m.type === 'assistant');
-    if (lastAssistant?.type !== 'assistant') return false;
-    const inProgressToolUses = lastAssistant.message.content.filter(b => b.type === 'tool_use' && inProgressToolUseIDs.has(b.id));
+    // Fast path: no tools in flight → spinner is not hidden for this reason
+    if (inProgressToolUseIDs.size === 0) return false;
+    if (lastAssistantMessage?.type !== 'assistant') return false;
+    const inProgressToolUses = lastAssistantMessage.message.content.filter(b => b.type === 'tool_use' && inProgressToolUseIDs.has(b.id));
     return inProgressToolUses.length > 0 && inProgressToolUses.every(b => b.type === 'tool_use' && b.name === SLEEP_TOOL_NAME);
-  }, [messages, inProgressToolUseIDs]);
+  }, [lastAssistantMessage, inProgressToolUseIDs]);
   const {
     onBeforeQuery: mrOnBeforeQuery,
     onTurnComplete: mrOnTurnComplete,
