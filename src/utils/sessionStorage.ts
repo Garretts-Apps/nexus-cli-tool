@@ -437,7 +437,7 @@ export const getProjectDir = memoize((projectDir: string): string => {
 let project: Project | null = null
 let cleanupRegistered = false
 
-function getProject(): Project {
+export function getProject(): Project {
   if (!project) {
     project = new Project()
 
@@ -503,10 +503,6 @@ export function setInternalEventReader(
  * Set the remote ingress URL on the current Project for testing.
  * This simulates what hydrateRemoteSession does in production.
  */
-export function setRemoteIngressUrlForTesting(url: string): void {
-  getProject().setRemoteIngressUrl(url)
-}
-
 const REMOTE_FLUSH_INTERVAL_MS = 10
 
 class Project {

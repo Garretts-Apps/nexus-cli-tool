@@ -50,3 +50,14 @@ export function setSessionFileForTesting(path: string): void {
     proj.sessionFile = path
   }
 }
+
+/**
+ * Set the remote ingress URL for testing
+ * @internal For testing only
+ */
+export function setRemoteIngressUrlForTesting(url: string): void {
+  const proj = getProject?.()
+  if (proj) {
+    proj.setRemoteIngressUrl(url)
+  }
+}
