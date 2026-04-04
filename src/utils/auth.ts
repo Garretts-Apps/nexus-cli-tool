@@ -95,6 +95,20 @@ function isManagedOAuthContext(): boolean {
   )
 }
 
+/**
+ * Validate that a helper path is a plain executable name and does not contain
+ * shell metacharacters that could enable shell injection.
+ */
+function validateHelperPath(path: string | undefined): string {
+  if (!path) throw new Error('Helper path is required')
+  if (/[;&|`$<>()\\]/.test(path)) {
+    throw new Error(
+      `Helper path must be a plain executable name, not a shell command: ${path}`,
+    )
+  }
+  return path
+}
+
 /** Whether we are supporting direct 1P auth. */
 // this code is closely related to getAuthTokenSource
 export function isAnthropicAuthEnabled(): boolean {
@@ -555,8 +569,9 @@ async function _executeApiKeyHelper(
     }
   }
 
-  const result = await execa(apiKeyHelper, {
-    shell: true,
+  const validatedHelper = validateHelperPath(apiKeyHelper)
+  const result = await execa(validatedHelper, [], {
+    shell: false,
     timeout: 10 * 60 * 1000,
     reject: false,
   })
@@ -654,8 +669,11 @@ export function refreshAwsAuth(awsAuthRefresh: string): Promise<boolean> {
   authStatusManager.startAuthentication()
 
   return new Promise(resolve => {
-    const refreshProc = exec(awsAuthRefresh, {
+    const validatedHelper = validateHelperPath(awsAuthRefresh)
+    const refreshProc = execa(validatedHelper, [], {
+      shell: false,
       timeout: AWS_AUTH_REFRESH_TIMEOUT_MS,
+      reject: false,
     })
     refreshProc.stdout!.on('data', data => {
       const output = data.toString().trim()
@@ -740,8 +758,9 @@ async function getAwsCredsFromCredentialExport(): Promise<{
     // only actually do the export if caller-identity calls
     try {
       logForDebugging('Running AWS credential export command')
-      const result = await execa(awsCredentialExport, {
-        shell: true,
+      const validatedExport = validateHelperPath(awsCredentialExport)
+      const result = await execa(validatedExport, [], {
+        shell: false,
         reject: false,
       })
       if (result.exitCode !== 0 || !result.stdout) {
@@ -922,8 +941,11 @@ export function refreshGcpAuth(gcpAuthRefresh: string): Promise<boolean> {
   authStatusManager.startAuthentication()
 
   return new Promise(resolve => {
-    const refreshProc = exec(gcpAuthRefresh, {
+    const validatedHelper = validateHelperPath(gcpAuthRefresh)
+    const refreshProc = execa(validatedHelper, [], {
+      shell: false,
       timeout: GCP_AUTH_REFRESH_TIMEOUT_MS,
+      reject: false,
     })
     refreshProc.stdout!.on('data', data => {
       const output = data.toString().trim()
