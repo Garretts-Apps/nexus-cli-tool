@@ -604,11 +604,22 @@ async function _executeApiKeyHelper(
     }
     throw new Error(stderr ? `${why}: ${stderr}` : why)
   }
-  const stdout = result.stdout?.trim()
-  if (!stdout) {
+  const rawStdout = result.stdout?.trim()
+  if (!rawStdout) {
     throw new Error('did not return a value')
   }
-  return stdout
+  // SEC-011: Scrub any accidental credential leakage before logging/returning.
+  // The stdout value is the API key itself — do NOT log it. Only scrub for
+  // cases where a misconfigured helper prints extra diagnostic output.
+  const scrubCredentials = (str: string) =>
+    str
+      .replace(/\b[A-Za-z0-9]{20,}\b/g, '[TOKEN]')
+      .replace(/password[=:]\S+/gi, 'password=[REDACTED]')
+  logForDebugging(
+    `apiKeyHelper stdout (scrubbed): ${scrubCredentials(rawStdout).slice(0, 100)}`,
+    { level: 'debug' },
+  )
+  return rawStdout
 }
 
 /**
