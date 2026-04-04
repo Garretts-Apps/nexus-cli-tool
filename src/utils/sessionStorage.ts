@@ -467,23 +467,6 @@ function getProject(): Project {
  * Reset the Project singleton's flush state for testing.
  * This ensures tests don't interfere with each other via shared counter state.
  */
-export function resetProjectFlushStateForTesting(): void {
-  project?._resetFlushState()
-}
-
-/**
- * Reset the entire Project singleton for testing.
- * This ensures tests with different CLAUDE_CONFIG_DIR values
- * don't share stale sessionFile paths.
- */
-export function resetProjectForTesting(): void {
-  project = null
-}
-
-export function setSessionFileForTesting(path: string): void {
-  getProject().sessionFile = path
-}
-
 type InternalEventWriter = (
   eventType: string,
   payload: Record<string, unknown>,
