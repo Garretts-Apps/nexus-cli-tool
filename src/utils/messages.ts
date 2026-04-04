@@ -4277,16 +4277,16 @@ You have exited auto mode. The user may now want to interact more directly. You 
 
   // Handle legacy attachments that were removed
   // IMPORTANT: if you remove an attachment type from normalizeAttachmentForAPI, make sure
-  // to add it here to avoid errors from old --resume'd sessions that might still have
-  // these attachment types.
-  const LEGACY_ATTACHMENT_TYPES = [
+  // PERF-006: Use Set for O(1) lookup instead of array.includes() O(N).
+  // Checked on every attachment normalization, called frequently during message processing.
+  const LEGACY_ATTACHMENT_TYPES = new Set([
     'autocheckpointing',
     'background_task_status',
     'todo',
     'task_progress', // removed in PR #19337
     'ultramemory', // removed in PR #23596
-  ]
-  if (LEGACY_ATTACHMENT_TYPES.includes((attachment as { type: string }).type)) {
+  ])
+  if (LEGACY_ATTACHMENT_TYPES.has((attachment as { type: string }).type)) {
     return []
   }
 
