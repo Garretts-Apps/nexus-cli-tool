@@ -4,6 +4,7 @@ import { execa } from 'execa'
 import { mkdir, stat } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
 import { join } from 'path'
+import { initializeSecureEnvironment } from './secureStartup.js'
 import { CLAUDE_AI_PROFILE_SCOPE } from 'src/constants/oauth.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -76,6 +77,10 @@ import {
 import { sleep } from './sleep.js'
 import { jsonParse } from './slowOperations.js'
 import { clearToolSchemaCache } from './toolSchemaCache.js'
+
+// Initialize secure environment at module load
+// This removes sensitive credentials from process.env to prevent exposure via /proc/environ
+initializeSecureEnvironment()
 
 /** Default TTL for API key helper cache in milliseconds (5 minutes) */
 const DEFAULT_API_KEY_HELPER_TTL = 5 * 60 * 1000
