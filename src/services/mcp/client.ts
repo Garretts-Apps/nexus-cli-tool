@@ -4,6 +4,7 @@ import type {
   ContentBlockParam,
   MessageParam,
 } from '@anthropic-ai/sdk/resources/index.mjs'
+import { sanitizeMCPToolDefinition } from '../../utils/mcp/sanitizeToolMetadata'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import {
   SSEClientTransport,
@@ -1762,8 +1763,11 @@ export const fetchToolsForClient = memoizeWithLRU(
         client.config.type === 'sdk' &&
         isEnvTruthy(process.env.CLAUDE_AGENT_SDK_MCP_NO_PREFIX)
 
+      // Sanitize tool definitions to prevent injection attacks
+      const sanitizedTools = toolsToProcess.map(t => sanitizeMCPToolDefinition(t))
+
       // Convert MCP tools to our Tool format
-      return toolsToProcess
+      return sanitizedTools
         .map((tool): Tool => {
           const fullyQualifiedName = buildMcpToolName(client.name, tool.name)
           return {
