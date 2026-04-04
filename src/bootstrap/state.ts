@@ -1,4 +1,3 @@
-import type { BetaMessageStreamParams } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
 import type { Attributes, Meter, MetricOptions } from '@opentelemetry/api'
 import type { logs } from '@opentelemetry/api-logs'
 import type { LoggerProvider } from '@opentelemetry/sdk-logs'
@@ -30,6 +29,10 @@ import { resetTeamState } from 'src/state/teamState.js'
 import { resetSkillState } from 'src/state/skillState.js'
 // eslint-disable-next-line custom-rules/bootstrap-isolation
 import { resetPluginState } from 'src/state/pluginState.js'
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetPromptCacheLatchState } from 'src/state/promptCacheLatches.js'
+// eslint-disable-next-line custom-rules/bootstrap-isolation
+import { resetApiDebugState } from 'src/state/apiDebug.js'
 
 // Union type for registered hooks - can be SDK callbacks or native plugin hooks
 type RegisteredHookMatcher = HookCallbackMatcher | PluginHookMatcher
@@ -126,17 +129,6 @@ type State = {
   // Agent color state
   agentColorMap: Map<string, AgentColorName>
   agentColorIndex: number
-  // Last API request for bug reports
-  lastAPIRequest: Omit<BetaMessageStreamParams, 'messages'> | null
-  // Messages from the last API request (ant-only; reference, not clone).
-  // Captures the exact post-compaction, CLAUDE.md-injected message set sent
-  // to the API so /share's serialized_conversation.json reflects reality.
-  lastAPIRequestMessages: BetaMessageStreamParams['messages'] | null
-  // Last auto-mode classifier request(s) for /share transcript
-  lastClassifierRequests: unknown[] | null
-  // CLAUDE.md content cached by context.ts for the auto-mode classifier.
-  // Breaks the yoloClassifier → claudemd → filesystem → permissions cycle.
-  cachedClaudeMdContent: string | null
   // In-memory error log for recent errors
   inMemoryErrorLog: Array<{ error: string; timestamp: string }>
   // Session-only bypass permissions mode flag (not persisted)
@@ -199,29 +191,6 @@ type State = {
   hasDevChannels: boolean
   // Dir containing the session's `.jsonl`; null = derive from originalCwd.
   sessionProjectDir: string | null
-  // Cached prompt cache 1h TTL allowlist from GrowthBook (session-stable)
-  promptCache1hAllowlist: string[] | null
-  // Cached 1h TTL user eligibility (session-stable). Latched on first
-  // evaluation so mid-session overage flips don't change the cache_control
-  // TTL, which would bust the server-side prompt cache.
-  promptCache1hEligible: boolean | null
-  // Sticky-on latch for AFK_MODE_BETA_HEADER. Once auto mode is first
-  // activated, keep sending the header for the rest of the session so
-  // Shift+Tab toggles don't bust the ~50-70K token prompt cache.
-  afkModeHeaderLatched: boolean | null
-  // Sticky-on latch for FAST_MODE_BETA_HEADER. Once fast mode is first
-  // enabled, keep sending the header so cooldown enter/exit doesn't
-  // double-bust the prompt cache. The `speed` body param stays dynamic.
-  fastModeHeaderLatched: boolean | null
-  // Sticky-on latch for the cache-editing beta header. Once cached
-  // microcompact is first enabled, keep sending the header so mid-session
-  // GrowthBook/settings toggles don't bust the prompt cache.
-  cacheEditingHeaderLatched: boolean | null
-  // Sticky-on latch for clearing thinking from prior tool loops. Triggered
-  // when >1h since last API call (confirmed cache miss — no cache-hit
-  // benefit to keeping thinking). Once latched, stays on so the newly-warmed
-  // thinking-cleared cache isn't busted by flipping back to keep:'all'.
-  thinkingClearLatched: boolean | null
   // Current prompt ID (UUID) correlating a user prompt with subsequent OTel events
   promptId: string | null
   // Last API requestId for the main conversation chain (not subagents).
@@ -232,10 +201,6 @@ type State = {
   // Used to compute timeSinceLastApiCallMs in tengu_api_success for
   // correlating cache misses with idle time (cache TTL is ~5min).
   lastApiCompletionTimestamp: number | null
-  // Set to true after compaction (auto or manual /compact). Consumed by
-  // logAPISuccess to tag the first post-compaction API call so we can
-  // distinguish compaction-induced cache misses from TTL expiry.
-  pendingPostCompaction: boolean
 }
 
 // ALSO HERE - THINK THRICE BEFORE MODIFYING
@@ -324,12 +289,6 @@ function getInitialState(): State {
     // Agent color state
     agentColorMap: new Map(),
     agentColorIndex: 0,
-    // Last API request for bug reports
-    lastAPIRequest: null,
-    lastAPIRequestMessages: null,
-    // Last auto-mode classifier request(s) for /share transcript
-    lastClassifierRequests: null,
-    cachedClaudeMdContent: null,
     // In-memory error log for recent errors
     inMemoryErrorLog: [],
     // Session-only bypass permissions mode flag (not persisted)
@@ -379,20 +338,10 @@ function getInitialState(): State {
     hasDevChannels: false,
     // Session project dir (null = derive from originalCwd)
     sessionProjectDir: null,
-    // Prompt cache 1h allowlist (null = not yet fetched from GrowthBook)
-    promptCache1hAllowlist: null,
-    // Prompt cache 1h eligibility (null = not yet evaluated)
-    promptCache1hEligible: null,
-    // Beta header latches (null = not yet triggered)
-    afkModeHeaderLatched: null,
-    fastModeHeaderLatched: null,
-    cacheEditingHeaderLatched: null,
-    thinkingClearLatched: null,
     // Current prompt ID
     promptId: null,
     lastMainRequestId: undefined,
     lastApiCompletionTimestamp: null,
-    pendingPostCompaction: false,
   }
 
   return state
@@ -739,20 +688,6 @@ export function setLastApiCompletionTimestamp(timestamp: number): void {
   STATE.lastApiCompletionTimestamp = timestamp
 }
 
-/** Mark that a compaction just occurred. The next API success event will
- *  include isPostCompaction=true, then the flag auto-resets. */
-export function markPostCompaction(): void {
-  STATE.pendingPostCompaction = true
-}
-
-/** Consume the post-compaction flag. Returns true once after compaction,
- *  then returns false until the next compaction. */
-export function consumePostCompaction(): boolean {
-  const was = STATE.pendingPostCompaction
-  STATE.pendingPostCompaction = false
-  return was
-}
-
 export function getLastInteractionTime(): number {
   return STATE.lastInteractionTime
 }
@@ -867,6 +802,8 @@ export function resetStateForTests(): void {
   resetTeamState()
   resetSkillState()
   resetPluginState()
+  resetPromptCacheLatchState()
+  resetApiDebugState()
 }
 
 // You shouldn't use this directly. See src/utils/model/modelStrings.ts::getModelStrings()
@@ -1141,47 +1078,6 @@ export function isApiProviderConfigured(): boolean {
 
 export function setApiProviderConfigured(configured: boolean): void {
   STATE.apiProviderConfigured = configured
-}
-
-export function setLastAPIRequest(
-  params: Omit<BetaMessageStreamParams, 'messages'> | null,
-): void {
-  STATE.lastAPIRequest = params
-}
-
-export function getLastAPIRequest(): Omit<
-  BetaMessageStreamParams,
-  'messages'
-> | null {
-  return STATE.lastAPIRequest
-}
-
-export function setLastAPIRequestMessages(
-  messages: BetaMessageStreamParams['messages'] | null,
-): void {
-  STATE.lastAPIRequestMessages = messages
-}
-
-export function getLastAPIRequestMessages():
-  | BetaMessageStreamParams['messages']
-  | null {
-  return STATE.lastAPIRequestMessages
-}
-
-export function setLastClassifierRequests(requests: unknown[] | null): void {
-  STATE.lastClassifierRequests = requests
-}
-
-export function getLastClassifierRequests(): unknown[] | null {
-  return STATE.lastClassifierRequests
-}
-
-export function setCachedClaudeMdContent(content: string | null): void {
-  STATE.cachedClaudeMdContent = content
-}
-
-export function getCachedClaudeMdContent(): string | null {
-  return STATE.cachedClaudeMdContent
 }
 
 export function addToInMemoryErrorLog(errorInfo: {
@@ -1527,65 +1423,6 @@ export function setHasDevChannels(value: boolean): void {
   STATE.hasDevChannels = value
 }
 
-export function getPromptCache1hAllowlist(): string[] | null {
-  return STATE.promptCache1hAllowlist
-}
-
-export function setPromptCache1hAllowlist(allowlist: string[] | null): void {
-  STATE.promptCache1hAllowlist = allowlist
-}
-
-export function getPromptCache1hEligible(): boolean | null {
-  return STATE.promptCache1hEligible
-}
-
-export function setPromptCache1hEligible(eligible: boolean | null): void {
-  STATE.promptCache1hEligible = eligible
-}
-
-export function getAfkModeHeaderLatched(): boolean | null {
-  return STATE.afkModeHeaderLatched
-}
-
-export function setAfkModeHeaderLatched(v: boolean): void {
-  STATE.afkModeHeaderLatched = v
-}
-
-export function getFastModeHeaderLatched(): boolean | null {
-  return STATE.fastModeHeaderLatched
-}
-
-export function setFastModeHeaderLatched(v: boolean): void {
-  STATE.fastModeHeaderLatched = v
-}
-
-export function getCacheEditingHeaderLatched(): boolean | null {
-  return STATE.cacheEditingHeaderLatched
-}
-
-export function setCacheEditingHeaderLatched(v: boolean): void {
-  STATE.cacheEditingHeaderLatched = v
-}
-
-export function getThinkingClearLatched(): boolean | null {
-  return STATE.thinkingClearLatched
-}
-
-export function setThinkingClearLatched(v: boolean): void {
-  STATE.thinkingClearLatched = v
-}
-
-/**
- * Reset beta header latches to null. Called on /clear and /compact so a
- * fresh conversation gets fresh header evaluation.
- */
-export function clearBetaHeaderLatches(): void {
-  STATE.afkModeHeaderLatched = null
-  STATE.fastModeHeaderLatched = null
-  STATE.cacheEditingHeaderLatched = null
-  STATE.thinkingClearLatched = null
-}
-
 export function getPromptId(): string | null {
   return STATE.promptId
 }
@@ -1641,4 +1478,35 @@ export {
   getIsScrollDraining,
   waitForScrollIdle,
 } from 'src/state/scrollDrain.js'
+
+export {
+  getPromptCache1hAllowlist,
+  setPromptCache1hAllowlist,
+  getPromptCache1hEligible,
+  setPromptCache1hEligible,
+  getAfkModeHeaderLatched,
+  setAfkModeHeaderLatched,
+  getFastModeHeaderLatched,
+  setFastModeHeaderLatched,
+  getCacheEditingHeaderLatched,
+  setCacheEditingHeaderLatched,
+  getThinkingClearLatched,
+  setThinkingClearLatched,
+  clearBetaHeaderLatches,
+  markPostCompaction,
+  consumePostCompaction,
+  resetPromptCacheLatchState,
+} from 'src/state/promptCacheLatches.js'
+
+export {
+  setLastAPIRequest,
+  getLastAPIRequest,
+  setLastAPIRequestMessages,
+  getLastAPIRequestMessages,
+  setLastClassifierRequests,
+  getLastClassifierRequests,
+  setCachedClaudeMdContent,
+  getCachedClaudeMdContent,
+  resetApiDebugState,
+} from 'src/state/apiDebug.js'
 
