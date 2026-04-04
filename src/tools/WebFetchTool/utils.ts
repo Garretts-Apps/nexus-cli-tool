@@ -81,7 +81,11 @@ const DOMAIN_CHECK_CACHE = new LRUCache<string, true>({
 /**
  * Hash a URL for use as a cache key
  * This prevents pre-signed URLs (with authentication tokens in query params)
- * from being stored as plaintext keys in the LRU cache
+ * from being stored as plaintext keys in the LRU cache.
+ *
+ * Security note: Cache entries are keyed by URL hash, not plaintext URL.
+ * The URL itself is never stored in the cache metadata, preventing exposure
+ * of authentication tokens or sensitive query parameters in the cache structure.
  */
 function getUrlCacheKey(url: string): string {
   return createHash('sha256').update(url).digest('hex')
