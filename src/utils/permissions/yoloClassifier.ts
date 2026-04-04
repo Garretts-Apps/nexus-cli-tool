@@ -4,12 +4,12 @@ import type { BetaToolUnion } from '@anthropic-ai/sdk/resources/beta/messages.js
 import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { z } from 'zod/v4'
+import { getSessionId } from '../../bootstrap/state.js'
 import {
   getCachedClaudeMdContent,
   getLastClassifierRequests,
-  getSessionId,
   setLastClassifierRequests,
-} from '../../bootstrap/state.js'
+} from '../../state/apiDebug.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { logEvent } from '../../services/analytics/index.js'
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/metadata.js'

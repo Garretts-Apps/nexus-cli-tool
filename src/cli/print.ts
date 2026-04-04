@@ -198,8 +198,8 @@ import {
   registerHookCallbacks,
   setInitJsonSchema,
   getInitJsonSchema,
-  setSdkAgentProgressSummariesEnabled,
 } from 'src/bootstrap/state.js'
+import { setSdkAgentProgressSummariesEnabled } from 'src/state/sessionConfig.js'
 import { createSyntheticOutputTool } from 'src/tools/SyntheticOutputTool/SyntheticOutputTool.js'
 import { parseSessionIdentifier } from 'src/utils/sessionUrl.js'
 import {
@@ -282,10 +282,12 @@ import { modelSupportsAutoMode } from 'src/utils/betas.js'
 import { ensureModelStringsInitialized } from 'src/utils/model/modelStrings.js'
 import {
   getSessionId,
-  setMainLoopModelOverride,
-  setMainThreadAgentType,
   switchSession,
   isSessionPersistenceDisabled,
+} from 'src/bootstrap/state.js'
+import {
+  setMainLoopModelOverride,
+  setMainThreadAgentType,
   getIsRemoteMode,
   getFlagSettingsInline,
   setFlagSettingsInline,
@@ -293,7 +295,7 @@ import {
   getAllowedChannels,
   setAllowedChannels,
   type ChannelEntry,
-} from 'src/bootstrap/state.js'
+} from 'src/state/sessionConfig.js'
 import { runWithWorkload, WORKLOAD_CRON } from 'src/utils/workloadContext.js'
 import type { UUID } from 'crypto'
 import { randomUUID } from 'crypto'

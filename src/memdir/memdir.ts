@@ -8,7 +8,8 @@ const teamMemPaths = feature('TEAMMEM')
   ? (require('./teamMemPaths.js') as typeof import('./teamMemPaths.js'))
   : null
 
-import { getKairosActive, getOriginalCwd } from '../bootstrap/state.js'
+import { getOriginalCwd } from '../bootstrap/state.js'
+import { getKairosActive } from '../state/sessionConfig.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 /* eslint-enable @typescript-eslint/no-require-imports */
 import {

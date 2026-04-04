@@ -13,12 +13,11 @@ import { envDynamic } from '../../utils/envDynamic.js'
 import { getModelBetas } from '../../utils/betas.js'
 import { getMainLoopModel } from '../../utils/model/model.js'
 import {
-  getSessionId,
   getIsInteractive,
-  getKairosActive,
-  getClientType,
   getParentSessionId as getParentSessionIdFromState,
+  getSessionId,
 } from '../../bootstrap/state.js'
+import { getClientType, getKairosActive } from '../../state/sessionConfig.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { isOfficialMcpUrl } from '../mcp/officialRegistry.js'
 import { isClaudeAISubscriber, getSubscriptionType } from '../../utils/auth.js'

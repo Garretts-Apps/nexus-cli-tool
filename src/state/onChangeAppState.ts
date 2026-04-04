@@ -1,4 +1,4 @@
-import { setMainLoopModelOverride } from '../bootstrap/state.js'
+import { setMainLoopModelOverride } from './sessionConfig.js'
 import {
   clearApiKeyHelperCache,
   clearAwsCredentialsCache,

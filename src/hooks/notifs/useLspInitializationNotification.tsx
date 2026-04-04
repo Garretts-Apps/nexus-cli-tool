@@ -1,7 +1,8 @@
 import { c as _c } from "react/compiler-runtime";
 import * as React from 'react';
 import { useInterval } from 'usehooks-ts';
-import { getIsRemoteMode, getIsScrollDraining } from '../../bootstrap/state.js';
+import { getIsScrollDraining } from '../../state/scrollDrain.js';
+import { getIsRemoteMode } from '../../state/sessionConfig.js';
 import { useNotifications } from '../../context/notifications.js';
 import { Text } from '../../ink.js';
 import { getInitializationStatus, getLspServerManager } from '../../services/lsp/manager.js';

@@ -27,15 +27,15 @@ import {
 } from './plugins/pluginOptionsStorage.js'
 import { getPluginDataDir } from './plugins/pluginDirectories.js'
 import {
-  getSessionId,
-  getProjectRoot,
-  getIsNonInteractiveSession,
-  getRegisteredHooks,
-  getStatsStore,
   addToTurnHookDuration,
+  getIsNonInteractiveSession,
   getOriginalCwd,
-  getMainThreadAgentType,
+  getProjectRoot,
+  getRegisteredHooks,
+  getSessionId,
+  getStatsStore,
 } from '../bootstrap/state.js'
+import { getMainThreadAgentType } from '../state/sessionConfig.js'
 import { checkHasTrustDialogAccepted } from './config.js'
 import {
   getHooksConfigFromSnapshot,

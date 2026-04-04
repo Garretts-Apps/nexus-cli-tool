@@ -1,9 +1,7 @@
 import { feature } from 'bun:bundle'
 import { z } from 'zod/v4'
-import {
-  getAllowedChannels,
-  handlePlanModeTransition,
-} from '../../bootstrap/state.js'
+import { handlePlanModeTransition } from '../../bootstrap/state.js'
+import { getAllowedChannels } from '../../state/sessionConfig.js'
 import type { Tool } from '../../Tool.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { lazySchema } from '../../utils/lazySchema.js'

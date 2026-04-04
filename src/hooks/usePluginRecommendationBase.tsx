@@ -7,7 +7,7 @@ import { c as _c } from "react/compiler-runtime";
 
 import figures from 'figures';
 import * as React from 'react';
-import { getIsRemoteMode } from '../bootstrap/state.js';
+import { getIsRemoteMode } from '../state/sessionConfig.js';
 import type { useNotifications } from '../context/notifications.js';
 import { Text } from '../ink.js';
 import { logError } from '../utils/log.js';

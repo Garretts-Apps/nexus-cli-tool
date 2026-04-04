@@ -1,7 +1,4 @@
-import {
-  getSessionIngressToken,
-  setSessionIngressToken,
-} from '../bootstrap/state.js'
+import { getSessionIngressToken, setSessionIngressToken } from '../state/sessionConfig.js'
 import {
   CCR_SESSION_INGRESS_TOKEN_PATH,
   maybePersistTokenForSubprocesses,

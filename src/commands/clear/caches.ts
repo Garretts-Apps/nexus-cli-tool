@@ -3,10 +3,8 @@
  * This module is imported at startup by main.tsx, so keep imports minimal.
  */
 import { feature } from 'bun:bundle'
-import {
-  clearInvokedSkills,
-  setLastEmittedDate,
-} from '../../bootstrap/state.js'
+import { setLastEmittedDate } from '../../bootstrap/state.js'
+import { clearInvokedSkills } from '../../state/skillState.js'
 import { clearCommandsCache } from '../../commands.js'
 import { getSessionStartDate } from '../../constants/common.js'
 import {

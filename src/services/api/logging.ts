@@ -6,13 +6,13 @@ import type {
 } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
 import {
   addToTotalDurationState,
-  consumePostCompaction,
   getIsNonInteractiveSession,
   getLastApiCompletionTimestamp,
   getTeleportedSessionInfo,
   markFirstTeleportMessageLogged,
   setLastApiCompletionTimestamp,
 } from 'src/bootstrap/state.js'
+import { consumePostCompaction } from 'src/state/promptCacheLatches.js'
 import type { QueryChainTracking } from 'src/Tool.js'
 import { isConnectorTextBlock } from 'src/types/connectorText.js'
 import type { AssistantMessage } from 'src/types/message.js'

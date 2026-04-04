@@ -4,14 +4,9 @@
  */
 
 import React from 'react'
-import {
-  getChromeFlagOverride,
-  getFlagSettingsPath,
-  getInlinePlugins,
-  getMainLoopModelOverride,
-  getSessionBypassPermissionsMode,
-  getSessionId,
-} from '../../bootstrap/state.js'
+import { getSessionBypassPermissionsMode, getSessionId } from '../../bootstrap/state.js'
+import { getChromeFlagOverride, getInlinePlugins } from '../../state/pluginState.js'
+import { getFlagSettingsPath, getMainLoopModelOverride } from '../../state/sessionConfig.js'
 import type { AppState } from '../../state/AppState.js'
 import { createTaskStateBase, generateTaskId } from '../../Task.js'
 import type { ToolUseContext } from '../../Tool.js'

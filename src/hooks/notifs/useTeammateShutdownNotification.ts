@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { getIsRemoteMode } from '../../bootstrap/state.js'
+import { getIsRemoteMode } from '../../state/sessionConfig.js'
 import {
   type Notification,
   useNotifications,

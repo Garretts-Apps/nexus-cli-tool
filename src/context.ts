@@ -1,9 +1,7 @@
 import { feature } from 'bun:bundle'
 import memoize from 'lodash-es/memoize.js'
-import {
-  getAdditionalDirectoriesForClaudeMd,
-  setCachedClaudeMdContent,
-} from './bootstrap/state.js'
+import { getAdditionalDirectoriesForClaudeMd } from './bootstrap/state.js'
+import { setCachedClaudeMdContent } from './state/apiDebug.js'
 import { getLocalISODate } from './constants/common.js'
 import {
   filterInjectedMemoryFiles,

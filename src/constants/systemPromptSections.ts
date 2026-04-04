@@ -1,10 +1,9 @@
 import {
-  clearBetaHeaderLatches,
   clearSystemPromptSectionState,
   getSystemPromptSectionCache,
   setSystemPromptSectionCacheEntry,
 } from '../bootstrap/state.js'
-
+import { clearBetaHeaderLatches } from '../state/promptCacheLatches.js'
 type ComputeFn = () => string | null | Promise<string | null>
 
 type SystemPromptSection = {

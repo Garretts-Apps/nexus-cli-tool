@@ -89,7 +89,7 @@ import type { APIError } from '@anthropic-ai/sdk'
 import type {
   BetaContentBlock,
 } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
-import { getStrictToolResultPairing } from '../bootstrap/state.js'
+import { getStrictToolResultPairing } from '../state/sessionConfig.js'
 import type { SpinnerMode } from '../components/Spinner.js'
 import {
   COMMAND_MESSAGE_TAG,

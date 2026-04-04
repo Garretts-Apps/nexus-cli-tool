@@ -1,5 +1,4 @@
-import { getAllowedSettingSources } from '../../bootstrap/state.js'
-
+import { getAllowedSettingSources } from '../../state/sessionConfig.js'
 /**
  * All possible sources where settings can come from
  * Order matters - later sources override earlier ones

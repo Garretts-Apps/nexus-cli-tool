@@ -2,7 +2,7 @@ import { c as _c } from "react/compiler-runtime";
 import * as React from 'react';
 import { useEffect } from 'react';
 import { useNotifications } from 'src/context/notifications.js';
-import { getIsRemoteMode } from '../../bootstrap/state.js';
+import { getIsRemoteMode } from '../../state/sessionConfig.js';
 import { Text } from '../../ink.js';
 import { hasClaudeAiMcpEverConnected } from '../../services/mcp/claudeai.js';
 import type { MCPServerConnection } from '../../services/mcp/types.js';

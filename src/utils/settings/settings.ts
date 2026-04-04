@@ -2,12 +2,9 @@ import { feature } from 'bun:bundle'
 import mergeWith from 'lodash-es/mergeWith.js'
 import { dirname, join, resolve } from 'path'
 import { z } from 'zod/v4'
-import {
-  getFlagSettingsInline,
-  getFlagSettingsPath,
-  getOriginalCwd,
-  getUseCoworkPlugins,
-} from '../../bootstrap/state.js'
+import { getOriginalCwd } from '../../bootstrap/state.js'
+import { getUseCoworkPlugins } from '../../state/pluginState.js'
+import { getFlagSettingsInline, getFlagSettingsPath } from '../../state/sessionConfig.js'
 import { getRemoteManagedSettingsSyncFromCache } from '../../services/remoteManagedSettings/syncCacheState.js'
 import { uniq } from '../array.js'
 import { logForDebugging } from '../debug.js'

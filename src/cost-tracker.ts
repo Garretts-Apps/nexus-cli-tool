@@ -4,8 +4,6 @@ import {
   addToTotalCostState,
   addToTotalLinesChanged,
   getCostCounter,
-  getModelUsage,
-  getSdkBetas,
   getSessionId,
   getTokenCounter,
   getTotalAPIDuration,
@@ -20,13 +18,17 @@ import {
   getTotalOutputTokens,
   getTotalToolDuration,
   getTotalWebSearchRequests,
-  getUsageForModel,
   hasUnknownModelCost,
   resetCostState,
   resetStateForTests,
   setCostStateForRestore,
   setHasUnknownModelCost,
 } from './bootstrap/state.js'
+import {
+  getModelUsage,
+  getSdkBetas,
+  getUsageForModel,
+} from './state/sessionConfig.js'
 import type { ModelUsage } from './entrypoints/agentSdkTypes.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

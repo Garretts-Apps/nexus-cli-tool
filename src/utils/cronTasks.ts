@@ -13,12 +13,12 @@ import { randomUUID } from 'crypto'
 import { readFileSync } from 'fs'
 import { mkdir, writeFile } from 'fs/promises'
 import { join } from 'path'
+import { getProjectRoot } from '../bootstrap/state.js'
 import {
   addSessionCronTask,
-  getProjectRoot,
   getSessionCronTasks,
   removeSessionCronTasks,
-} from '../bootstrap/state.js'
+} from '../state/cronState.js'
 import { computeNextCronRun, parseCronExpression } from './cron.js'
 import { logForDebugging } from './debug.js'
 import { isFsInaccessible } from './errors.js'

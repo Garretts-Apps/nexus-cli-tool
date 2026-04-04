@@ -5,7 +5,7 @@ import { Text } from 'src/ink.js';
 import type { MCPServerConnection } from 'src/services/mcp/types.js';
 import { getGlobalConfig, saveGlobalConfig } from 'src/utils/config.js';
 import { detectIDEs, type IDEExtensionInstallationStatus, isJetBrainsIde, isSupportedTerminal } from 'src/utils/ide.js';
-import { getIsRemoteMode } from '../../bootstrap/state.js';
+import { getIsRemoteMode } from '../../state/sessionConfig.js';
 import { useIdeConnectionStatus } from '../useIdeConnectionStatus.js';
 import type { IDESelection } from '../useIdeSelection.js';
 const MAX_IDE_HINT_SHOW_COUNT = 5;

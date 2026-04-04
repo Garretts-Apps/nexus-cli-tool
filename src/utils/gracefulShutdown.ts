@@ -5,11 +5,11 @@ import { onExit } from 'signal-exit'
 import type { ExitReason } from 'src/entrypoints/agentSdkTypes.js'
 import {
   getIsInteractive,
-  getIsScrollDraining,
   getLastMainRequestId,
   getSessionId,
   isSessionPersistenceDisabled,
 } from '../bootstrap/state.js'
+import { getIsScrollDraining } from '../state/scrollDrain.js'
 import instances from '../ink/instances.js'
 import {
   DISABLE_KITTY_KEYBOARD,

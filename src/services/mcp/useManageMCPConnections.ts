@@ -52,7 +52,7 @@ import {
 import type { AppState } from 'src/state/AppState.js'
 import type { PluginError } from 'src/types/plugin.js'
 import { logForDebugging } from 'src/utils/debug.js'
-import { getAllowedChannels } from '../../bootstrap/state.js'
+import { getAllowedChannels } from '../../state/sessionConfig.js'
 import { useNotifications } from '../../context/notifications.js'
 import {
   useAppState,

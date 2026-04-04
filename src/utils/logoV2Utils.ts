@@ -1,4 +1,5 @@
-import { getDirectConnectServerUrl, getSessionId } from '../bootstrap/state.js'
+import { getSessionId } from '../bootstrap/state.js'
+import { getDirectConnectServerUrl } from '../state/sessionConfig.js'
 import { stringWidth } from '../ink/stringWidth.js'
 import type { LogOption } from '../types/logs.js'
 import { getSubscriptionName, isClaudeAISubscriber } from './auth.js'

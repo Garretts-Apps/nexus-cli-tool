@@ -114,22 +114,24 @@ import {
   APIUserAbortError,
 } from '@anthropic-ai/sdk/error'
 import {
+  getLastApiCompletionTimestamp,
+  getSessionId,
+  setLastMainRequestId,
+} from 'src/bootstrap/state.js'
+import {
   getAfkModeHeaderLatched,
   getCacheEditingHeaderLatched,
   getFastModeHeaderLatched,
-  getLastApiCompletionTimestamp,
   getPromptCache1hAllowlist,
   getPromptCache1hEligible,
-  getSessionId,
   getThinkingClearLatched,
   setAfkModeHeaderLatched,
   setCacheEditingHeaderLatched,
   setFastModeHeaderLatched,
-  setLastMainRequestId,
   setPromptCache1hAllowlist,
   setPromptCache1hEligible,
   setThinkingClearLatched,
-} from 'src/bootstrap/state.js'
+} from 'src/state/promptCacheLatches.js'
 import {
   AFK_MODE_BETA_HEADER,
   CONTEXT_1M_BETA_HEADER,

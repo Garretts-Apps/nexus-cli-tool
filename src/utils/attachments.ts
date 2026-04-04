@@ -141,23 +141,22 @@ import { getTaskOutputPath } from './task/diskOutput.js'
 import { drainPendingMessages } from '../tasks/LocalAgentTask/LocalAgentTask.js'
 import type { TaskType, TaskStatus } from '../Task.js'
 import {
+  getCurrentTurnTokenBudget,
+  getLastEmittedDate,
   getOriginalCwd,
   getSessionId,
-  getSdkBetas,
   getTotalCostUSD,
   getTotalOutputTokens,
-  getCurrentTurnTokenBudget,
   getTurnOutputTokens,
   hasExitedPlanModeInSession,
-  setHasExitedPlanMode,
-  needsPlanModeExitAttachment,
-  setNeedsPlanModeExitAttachment,
   needsAutoModeExitAttachment,
-  setNeedsAutoModeExitAttachment,
-  getLastEmittedDate,
+  needsPlanModeExitAttachment,
+  setHasExitedPlanMode,
   setLastEmittedDate,
-  getKairosActive,
+  setNeedsAutoModeExitAttachment,
+  setNeedsPlanModeExitAttachment,
 } from '../bootstrap/state.js'
+import { getKairosActive, getSdkBetas } from '../state/sessionConfig.js'
 import type { QuerySource } from '../constants/querySource.js'
 import {
   getDeferredToolsDelta,

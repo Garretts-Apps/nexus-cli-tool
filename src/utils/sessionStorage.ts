@@ -26,10 +26,10 @@ import {
   getPlanSlugCache,
   getPromptId,
   getSessionId,
-  getSessionProjectDir,
   isSessionPersistenceDisabled,
   switchSession,
 } from '../bootstrap/state.js'
+import { getSessionProjectDir } from '../state/sessionConfig.js'
 import { builtInCommandNames } from '../commands.js'
 import { COMMAND_NAME_TAG, TICK_TAG } from '../constants/xml.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'

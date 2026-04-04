@@ -1,6 +1,7 @@
 import memoize from 'lodash-es/memoize.js'
 import { basename, dirname, join } from 'path'
-import { getInlinePlugins, getSessionId } from '../../bootstrap/state.js'
+import { getSessionId } from '../../bootstrap/state.js'
+import { getInlinePlugins } from '../../state/pluginState.js'
 import type { Command } from '../../types/command.js'
 import { getPluginErrorMessage } from '../../types/plugin.js'
 import {

@@ -1,7 +1,4 @@
-import {
-  getMainLoopModelOverride,
-  setMainLoopModelOverride,
-} from '../bootstrap/state.js'
+import { getMainLoopModelOverride, setMainLoopModelOverride } from '../state/sessionConfig.js'
 import { getGlobalConfig, saveGlobalConfig } from '../utils/config.js'
 import {
   getSettingsForSource,

@@ -4,10 +4,7 @@ import { readdir, readFile, stat } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
 import { join } from 'path'
 import type { QuerySource } from 'src/constants/querySource.js'
-import {
-  setLastAPIRequest,
-  setLastAPIRequestMessages,
-} from '../bootstrap/state.js'
+import { setLastAPIRequest, setLastAPIRequestMessages } from '../state/apiDebug.js'
 import { TICK_TAG } from '../constants/xml.js'
 import {
   type LogOption,

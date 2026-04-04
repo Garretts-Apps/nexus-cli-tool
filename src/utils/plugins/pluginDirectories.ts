@@ -12,7 +12,7 @@
 import { mkdirSync } from 'fs'
 import { readdir, rm, stat } from 'fs/promises'
 import { delimiter, join } from 'path'
-import { getUseCoworkPlugins } from '../../bootstrap/state.js'
+import { getUseCoworkPlugins } from '../../state/pluginState.js'
 import { logForDebugging } from '../debug.js'
 import { getClaudeConfigHomeDir, isEnvTruthy } from '../envUtils.js'
 import { errorMessage, isFsInaccessible } from '../errors.js'

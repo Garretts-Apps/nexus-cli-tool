@@ -1,6 +1,7 @@
 import { feature } from 'bun:bundle'
 import { randomUUID } from 'crypto'
-import { getSdkBetas, getSessionId } from 'src/bootstrap/state.js'
+import { getSessionId } from 'src/bootstrap/state.js'
+import { getSdkBetas } from 'src/state/sessionConfig.js'
 import { DEFAULT_OUTPUT_STYLE_NAME } from 'src/constants/outputStyles.js'
 import type {
   ApiKeySource,
