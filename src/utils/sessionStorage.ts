@@ -424,8 +424,10 @@ function getEntrypoint(): string | undefined {
   return process.env.CLAUDE_CODE_ENTRYPOINT
 }
 
+// CODE-005: Check if custom session titles are enabled (feature flag or env override)
+// Allows disabling custom title functionality if needed for compliance or testing
 export function isCustomTitleEnabled(): boolean {
-  return true
+  return isEnvTruthy(process.env.NEXUS_ENABLE_CUSTOM_TITLES) ?? true
 }
 
 // Memoized: called 12+ times per turn via hooks.ts createBaseHookInput
