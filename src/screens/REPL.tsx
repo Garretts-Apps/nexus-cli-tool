@@ -2211,6 +2211,12 @@ export function REPL({
     inputValue,
     streamMode
   };
+  // PERF-008: Gate on messages.length, not the full messages array reference.
+  // getTotalCost() reads accumulated cost state; it doesn't inspect message
+  // content. Using the full array caused this effect to fire on every streamed
+  // token (content mutations create new array refs), generating 200k+ spurious
+  // re-runs per session. Length-gating means we only recheck when a new message
+  // is appended — the only time new cost could actually cross the threshold.
   useEffect(() => {
     const totalCost = getTotalCost();
     if (totalCost >= 5 /* $5 */ && !showCostDialog && !haveShownCostDialog) {
@@ -2223,7 +2229,8 @@ export function REPL({
         setShowCostDialog(true);
       }
     }
-  }, [messages, showCostDialog, haveShownCostDialog]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, showCostDialog, haveShownCostDialog]);
   const sandboxAskCallback: SandboxAskCallback = useCallback(async (hostPattern: NetworkHostPattern) => {
     // If running as a swarm worker, forward the request to the leader via mailbox
     if (isAgentSwarmsEnabled() && isSwarmWorker()) {
