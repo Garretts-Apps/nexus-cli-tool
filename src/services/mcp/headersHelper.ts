@@ -1,4 +1,7 @@
-import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
+import {
+  getIsNonInteractiveSession,
+  getSessionBypassPermissionsMode,
+} from '../../bootstrap/state.js'
 import { checkHasTrustDialogAccepted } from '../../utils/config.js'
 import { logAntError } from '../../utils/debug.js'
 import { errorMessage } from '../../utils/errors.js'
@@ -13,20 +16,7 @@ import type {
   ScopedMcpServerConfig,
 } from './types.js'
 
-// Characters that have special meaning in shells and could enable injection attacks
-const SHELL_METACHARACTERS = /[;&|`$<>()\n\r'"\\]/
-
-/**
- * Validate that a helper path does not contain shell metacharacters.
- * Throws if the path is unsafe to pass to execFile.
- */
-function validateHelperPath(helperPath: string): void {
-  if (SHELL_METACHARACTERS.test(helperPath)) {
-    throw new Error(
-      `headersHelper path contains shell metacharacters and was rejected for security reasons: ${helperPath}`,
-    )
-  }
-}
+import { validateHelperPath } from '../../utils/authValidation.js'
 
 /**
  * Check if the MCP server config comes from project settings (projectSettings or localSettings)
@@ -52,25 +42,32 @@ export async function getMcpHeadersFromHelper(
     return null
   }
 
-  // Security check for project/local settings
-  // NOTE: Trust check is intentionally skipped in non-interactive mode (e.g., CI/CD, automation
-  // pipelines) because there is no user present to accept a trust dialog. Callers running in
-  // non-interactive contexts are assumed to have pre-authorised execution via their environment
-  // configuration (e.g., explicit headersHelper entry in a machine-managed settings file).
+  // Security check for project/local settings.
+  // Trust is required in ALL modes (interactive and non-interactive) to prevent
+  // attackers from exploiting CI/CD pipelines with elevated permissions.
+  // Non-interactive sessions may only bypass the trust dialog when the session
+  // has been explicitly started with bypass-permissions mode enabled.
   if (
     'scope' in config &&
-    isMcpServerFromProjectOrLocalSettings(config as ScopedMcpServerConfig) &&
-    !getIsNonInteractiveSession()
+    isMcpServerFromProjectOrLocalSettings(config as ScopedMcpServerConfig)
   ) {
-    // Check if trust has been established for this project
     const hasTrust = checkHasTrustDialogAccepted()
     if (!hasTrust) {
-      const error = new Error(
-        `Security: headersHelper for MCP server '${serverName}' executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
-      )
-      logAntError('MCP headersHelper invoked before trust check', error)
-      logEvent('tengu_mcp_headersHelper_missing_trust', {})
-      return null
+      // In non-interactive mode, allow execution only with explicit bypass-permissions flag
+      if (getIsNonInteractiveSession() && getSessionBypassPermissionsMode()) {
+        logEvent('tengu_mcp_headersHelper_bypass_permissions', {
+          serverName,
+        })
+      } else {
+        const error = new Error(
+          `Security: headersHelper for MCP server '${serverName}' executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+        )
+        logAntError('MCP headersHelper invoked before trust check', error)
+        logEvent('tengu_mcp_headersHelper_missing_trust', {
+          nonInteractive: String(getIsNonInteractiveSession()),
+        })
+        return null
+      }
     }
   }
 

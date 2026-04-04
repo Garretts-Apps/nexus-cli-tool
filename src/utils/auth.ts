@@ -1,9 +1,9 @@
 import chalk from 'chalk'
-import { exec } from 'child_process'
 import { execa } from 'execa'
 import { mkdir, stat } from 'fs/promises'
 import memoize from 'lodash-es/memoize.js'
 import { join } from 'path'
+import { validateHelperPath } from './authValidation.js'
 import { initializeSecureEnvironment, getCachedCredential } from './secureStartup.js'
 import { tryOrLog } from './errorClassification.js'
 import { CLAUDE_AI_PROFILE_SCOPE } from 'src/constants/oauth.js'
@@ -15,6 +15,7 @@ import { getModelStrings } from 'src/utils/model/modelStrings.js'
 import { getAPIProvider } from 'src/utils/model/providers.js'
 import {
   getIsNonInteractiveSession,
+  getSessionBypassPermissionsMode,
   preferThirdPartyAuthentication,
 } from '../bootstrap/state.js'
 import {
@@ -102,17 +103,27 @@ function isManagedOAuthContext(): boolean {
 }
 
 /**
- * Validate that a helper path is a plain executable name and does not contain
- * shell metacharacters that could enable shell injection.
+ * Check whether a credential helper from project/local settings should be
+ * blocked due to missing workspace trust.
+ *
+ * Trust is required in ALL modes (interactive and non-interactive) to prevent
+ * attackers from exploiting CI/CD pipelines with elevated permissions.
+ * Non-interactive sessions may only bypass the trust dialog when the session
+ * has been explicitly started with bypass-permissions mode enabled.
+ *
+ * @returns true if the helper should be BLOCKED (no trust and no bypass).
  */
-function validateHelperPath(path: string | undefined): string {
-  if (!path) throw new Error('Helper path is required')
-  if (/[;&|`$<>()\\]/.test(path)) {
-    throw new Error(
-      `Helper path must be a plain executable name, not a shell command: ${path}`,
-    )
+function shouldBlockUntrustedHelper(helperName: string): boolean {
+  const hasTrust = checkHasTrustDialogAccepted()
+  if (hasTrust) return false
+
+  // In non-interactive mode, allow execution only with explicit bypass-permissions flag
+  if (getIsNonInteractiveSession() && getSessionBypassPermissionsMode()) {
+    logEvent(`tengu_${helperName}_bypass_permissions`, {})
+    return false
   }
-  return path
+
+  return true
 }
 
 /** Whether we are supporting direct 1P auth. */
@@ -565,16 +576,13 @@ async function _executeApiKeyHelper(
     return null
   }
 
-  if (isApiKeyHelperFromProjectOrLocalSettings()) {
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !isNonInteractiveSession) {
-      const error = new Error(
-        `Security: apiKeyHelper executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
-      )
-      logAntError('apiKeyHelper invoked before trust check', error)
-      logEvent('tengu_apiKeyHelper_missing_trust11', {})
-      return null
-    }
+  if (isApiKeyHelperFromProjectOrLocalSettings() && shouldBlockUntrustedHelper('apiKeyHelper')) {
+    const error = new Error(
+      `Security: apiKeyHelper executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+    )
+    logAntError('apiKeyHelper invoked before trust check', error)
+    logEvent('tengu_apiKeyHelper_missing_trust11', {})
+    return null
   }
 
   const validatedHelper = validateHelperPath(apiKeyHelper)
@@ -647,17 +655,13 @@ async function runAwsAuthRefresh(): Promise<boolean> {
   }
 
   // SECURITY: Check if awsAuthRefresh is from project settings
-  if (isAwsAuthRefreshFromProjectSettings()) {
-    // Check if trust has been established for this project
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !getIsNonInteractiveSession()) {
-      const error = new Error(
-        `Security: awsAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
-      )
-      logAntError('awsAuthRefresh invoked before trust check', error)
-      logEvent('tengu_awsAuthRefresh_missing_trust', {})
-      return false
-    }
+  if (isAwsAuthRefreshFromProjectSettings() && shouldBlockUntrustedHelper('awsAuthRefresh')) {
+    const error = new Error(
+      `Security: awsAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+    )
+    logAntError('awsAuthRefresh invoked before trust check', error)
+    logEvent('tengu_awsAuthRefresh_missing_trust', {})
+    return false
   }
 
   try {
@@ -747,17 +751,13 @@ async function getAwsCredsFromCredentialExport(): Promise<{
   }
 
   // SECURITY: Check if awsCredentialExport is from project settings
-  if (isAwsCredentialExportFromProjectSettings()) {
-    // Check if trust has been established for this project
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !getIsNonInteractiveSession()) {
-      const error = new Error(
-        `Security: awsCredentialExport executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
-      )
-      logAntError('awsCredentialExport invoked before trust check', error)
-      logEvent('tengu_awsCredentialExport_missing_trust', {})
-      return null
-    }
+  if (isAwsCredentialExportFromProjectSettings() && shouldBlockUntrustedHelper('awsCredentialExport')) {
+    const error = new Error(
+      `Security: awsCredentialExport executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+    )
+    logAntError('awsCredentialExport invoked before trust check', error)
+    logEvent('tengu_awsCredentialExport_missing_trust', {})
+    return null
   }
 
   try {
@@ -914,18 +914,13 @@ async function runGcpAuthRefresh(): Promise<boolean> {
   }
 
   // SECURITY: Check if gcpAuthRefresh is from project settings
-  if (isGcpAuthRefreshFromProjectSettings()) {
-    // Check if trust has been established for this project
-    // Pass true to indicate this is a dangerous feature that requires trust
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !getIsNonInteractiveSession()) {
-      const error = new Error(
-        `Security: gcpAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
-      )
-      logAntError('gcpAuthRefresh invoked before trust check', error)
-      logEvent('tengu_gcpAuthRefresh_missing_trust', {})
-      return false
-    }
+  if (isGcpAuthRefreshFromProjectSettings() && shouldBlockUntrustedHelper('gcpAuthRefresh')) {
+    const error = new Error(
+      `Security: gcpAuthRefresh executed before workspace trust is confirmed. If you see this message, post in ${MACRO.FEEDBACK_CHANNEL}.`,
+    )
+    logAntError('gcpAuthRefresh invoked before trust check', error)
+    logEvent('tengu_gcpAuthRefresh_missing_trust', {})
+    return false
   }
 
   try {
@@ -1037,13 +1032,9 @@ export function prefetchGcpCredentialsIfSafe(): void {
   }
 
   // Check if gcpAuthRefresh is from project settings
-  if (isGcpAuthRefreshFromProjectSettings()) {
-    // Only prefetch if trust has already been established
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !getIsNonInteractiveSession()) {
-      // Don't prefetch - wait for trust to be established first
-      return
-    }
+  if (isGcpAuthRefreshFromProjectSettings() && shouldBlockUntrustedHelper('gcpAuthRefresh_prefetch')) {
+    // Don't prefetch - wait for trust to be established first
+    return
   }
 
   // Safe to prefetch - either not from project settings or trust already established
@@ -1068,15 +1059,12 @@ export function prefetchAwsCredentialsAndBedRockInfoIfSafe(): void {
 
   // Check if either command is from project settings
   if (
-    isAwsAuthRefreshFromProjectSettings() ||
-    isAwsCredentialExportFromProjectSettings()
+    (isAwsAuthRefreshFromProjectSettings() ||
+      isAwsCredentialExportFromProjectSettings()) &&
+    shouldBlockUntrustedHelper('awsCredentials_prefetch')
   ) {
-    // Only prefetch if trust has already been established
-    const hasTrust = checkHasTrustDialogAccepted()
-    if (!hasTrust && !getIsNonInteractiveSession()) {
-      // Don't prefetch - wait for trust to be established first
-      return
-    }
+    // Don't prefetch - wait for trust to be established first
+    return
   }
 
   // Safe to prefetch - either not from project settings or trust already established
