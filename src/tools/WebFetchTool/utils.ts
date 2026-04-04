@@ -168,10 +168,16 @@ export function validateURL(url: string): boolean {
   }
 
   // SSRF prevention: Block private IP ranges and localhost
+  // URL parser strips brackets from IPv6 literals: new URL('http://[::1]').hostname === '::1'
   const hostname = parsed.hostname || ''
 
-  // Block localhost and 127.x.x.x (loopback)
-  if (hostname === 'localhost' || hostname.startsWith('127.')) {
+  // Block localhost variants
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
+    return false
+  }
+
+  // Block 127.x.x.x (IPv4 loopback)
+  if (hostname.startsWith('127.')) {
     return false
   }
 
@@ -180,21 +186,53 @@ export function validateURL(url: string): boolean {
     return false
   }
 
-  // Block AWS IMDS (169.254.169.254)
+  // Block AWS/cloud IMDS (169.254.169.254) and link-local range
   if (hostname.startsWith('169.254.')) {
     return false
   }
 
   // Block RFC 1918 private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
-  if (hostname.startsWith('10.') ||
-      (hostname.startsWith('172.') && isPrivate172Range(hostname)) ||
-      hostname.startsWith('192.168.')) {
+  if (
+    hostname.startsWith('10.') ||
+    (hostname.startsWith('172.') && isPrivate172Range(hostname)) ||
+    hostname.startsWith('192.168.')
+  ) {
     return false
   }
 
   // Block 0.0.0.0 and other special addresses
   if (hostname === '0.0.0.0' || hostname === '::') {
     return false
+  }
+
+  // Block IPv6 Unique Local Addresses (fc00::/7 — covers fc00:: and fd00::)
+  const hostLower = hostname.toLowerCase()
+  if (hostLower.startsWith('fc') || hostLower.startsWith('fd')) {
+    // Only block if it looks like an IPv6 address (contains ':')
+    if (hostLower.includes(':')) {
+      return false
+    }
+  }
+
+  // Block IPv6 link-local (fe80::/10)
+  if (hostLower.startsWith('fe80') && hostLower.includes(':')) {
+    return false
+  }
+
+  // Block IPv4-mapped IPv6 addresses carrying private IPs
+  // e.g. ::ffff:127.0.0.1, ::ffff:10.0.0.1, ::ffff:192.168.1.1
+  if (hostLower.startsWith('::ffff:')) {
+    const mappedIp = hostLower.slice('::ffff:'.length)
+    if (
+      mappedIp.startsWith('127.') ||
+      mappedIp.startsWith('10.') ||
+      mappedIp.startsWith('192.168.') ||
+      mappedIp.startsWith('169.254.') ||
+      (mappedIp.startsWith('172.') && isPrivate172Range(mappedIp)) ||
+      mappedIp === '0.0.0.0'
+    ) {
+      return false
+    }
   }
 
   // Initial filter that this isn't a privileged, company-internal URL
