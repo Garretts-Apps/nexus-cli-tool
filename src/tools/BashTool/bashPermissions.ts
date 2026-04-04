@@ -71,6 +71,7 @@ import { BashTool } from './BashTool.js'
 import { checkCommandOperatorPermissions } from './bashCommandHelpers.js'
 import {
   bashCommandIsSafeAsync_DEPRECATED,
+  checkBypassPermissionsRateLimit,
   stripSafeHeredocSubstitutions,
 } from './bashSecurity.js'
 import { checkPermissionMode } from './modeValidation.js'
@@ -1666,6 +1667,24 @@ export async function bashToolHasPermission(
   getCommandSubcommandPrefixFn = getCommandSubcommandPrefix,
 ): Promise<PermissionResult> {
   let appState = context.getAppState()
+
+  // SEC-004: In bypassPermissions mode, enforce per-turn rate limiting so that
+  // prompt-injected bash commands cannot execute unboundedly without oversight.
+  // checkBypassPermissionsRateLimit returns 'ask' when the limit is exceeded,
+  // which surfaces an interactive acknowledgement before proceeding.
+  if (appState.toolPermissionContext.mode === 'bypassPermissions') {
+    // Use message count as a stable per-turn token: it increments once per new
+    // user/assistant message pair, so all bash calls within the same turn share
+    // the same token and the counter resets naturally when a new turn starts.
+    const turnToken = String(context.messages.length)
+    const rateLimitResult = checkBypassPermissionsRateLimit(turnToken)
+    if (rateLimitResult.behavior !== 'passthrough') {
+      return rateLimitResult
+    }
+    logEvent('tengu_bash_bypass_execution', {
+      command: input.command.slice(0, 200) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+    })
+  }
 
   // 0. AST-based security parse. This replaces both tryParseShellCommand
   // (the shell-quote pre-check) and the bashCommandIsSafe misparsing gate.

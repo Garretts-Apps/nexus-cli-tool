@@ -791,6 +791,13 @@ export function initialPermissionModeFromCLI({
       continue // Skip this mode if it's disabled
     }
 
+    // SEC-004: Emit a visible startup warning when bypassPermissions is active
+    // so operators are not silently running with all permission checks disabled.
+    if (mode === 'bypassPermissions' && !notification) {
+      notification =
+        'WARNING: --dangerously-skip-permissions is active. All permission checks are disabled. ' +
+        'Bash commands are rate-limited to 3 per user turn to mitigate prompt injection risk.'
+    }
     result = { mode, notification } // Use the first valid mode
     break
   }
