@@ -10,6 +10,7 @@ import { tmpdir } from 'os';
 import figures from 'figures';
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- / n N Esc [ v are bare letters in transcript modal context, same class as g/G/j/k in ScrollKeybindingHandler
 import { useInput } from '../ink.js';
+import { useCostThreshold } from '../hooks/useCostThreshold.js';
 import { useSearchInput } from '../hooks/useSearchInput.js';
 import { useTerminalSize } from '../hooks/useTerminalSize.js';
 import { useSearchHighlight } from '../ink/hooks/use-search-highlight.js';
@@ -72,7 +73,7 @@ import { buildEffectiveSystemPrompt } from '../utils/systemPrompt.js';
 import { getSystemContext, getUserContext } from '../context.js';
 import { getMemoryFiles } from '../utils/claudemd.js';
 import { startBackgroundHousekeeping } from '../utils/backgroundHousekeeping.js';
-import { getTotalCost, saveCurrentSessionCosts, resetCostState, getStoredSessionCosts } from '../cost-tracker.js';
+import { saveCurrentSessionCosts, resetCostState, getStoredSessionCosts } from '../cost-tracker.js';
 import { useCostSummary } from '../costHook.js';
 import { useFpsMetrics } from '../context/fpsMetrics.js';
 import { useAfterFirstRender } from '../hooks/useAfterFirstRender.js';
@@ -129,7 +130,7 @@ import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js';
 import { clearSpeculativeChecks } from '../tools/BashTool/bashPermissions.js';
 import type { AutoUpdaterResult } from '../utils/autoUpdater.js';
 import { getGlobalConfig, saveGlobalConfig, getGlobalConfigWriteCount } from '../utils/config.js';
-import { hasConsoleBillingAccess } from '../utils/billing.js';
+// hasConsoleBillingAccess moved to useCostThreshold hook
 import { logEvent, type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from 'src/services/analytics/index.js';
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js';
 import { textForResubmit, handleMessageFromStream, type StreamingToolUse, type StreamingThinking, isCompactBoundaryMessage, getMessagesAfterCompactBoundary, getContentText, createUserMessage, createAssistantMessage, createTurnDurationMessage, createAgentsKilledMessage, createApiMetricsMessage, createSystemMessage, createCommandInputMessage, formatCommandInputTags } from '../utils/messages.js';
@@ -1472,7 +1473,8 @@ export function REPL({
   const [spinnerShimmerColor, setSpinnerShimmerColor] = useState<keyof Theme | null>(null);
   const [isMessageSelectorVisible, setIsMessageSelectorVisible] = useState(false);
   const [messageSelectorPreselect, setMessageSelectorPreselect] = useState<UserMessage | undefined>(undefined);
-  const [showCostDialog, setShowCostDialog] = useState(false);
+  // CODE-001: extracted to useCostThreshold hook (see src/hooks/useCostThreshold.ts)
+  const { showCostDialog, setShowCostDialog, setHaveShownCostDialog } = useCostThreshold(messages.length);
   const [conversationId, setConversationId] = useState(randomUUID());
 
   // Idle-return dialog: shown when user submits after a long idle gap
@@ -1498,7 +1500,6 @@ export function REPL({
   const [contentReplacementStateRef] = useState(() => ({
     current: provisionContentReplacementState(initialMessages, initialContentReplacements)
   }));
-  const [haveShownCostDialog, setHaveShownCostDialog] = useState(getGlobalConfig().hasAcknowledgedCostThreshold);
   const [vimMode, setVimMode] = useState<VimMode>('INSERT');
   const [showBashesDialog, setShowBashesDialog] = useState<string | boolean>(false);
   const [isSearchingHistory, setIsSearchingHistory] = useState(false);
@@ -2211,26 +2212,6 @@ export function REPL({
     inputValue,
     streamMode
   };
-  // PERF-008: Gate on messages.length, not the full messages array reference.
-  // getTotalCost() reads accumulated cost state; it doesn't inspect message
-  // content. Using the full array caused this effect to fire on every streamed
-  // token (content mutations create new array refs), generating 200k+ spurious
-  // re-runs per session. Length-gating means we only recheck when a new message
-  // is appended — the only time new cost could actually cross the threshold.
-  useEffect(() => {
-    const totalCost = getTotalCost();
-    if (totalCost >= 5 /* $5 */ && !showCostDialog && !haveShownCostDialog) {
-      logEvent('tengu_cost_threshold_reached', {});
-      // Mark as shown even if the dialog won't render (no console billing
-      // access). Otherwise this effect re-fires on every message change for
-      // the rest of the session — 200k+ spurious events observed.
-      setHaveShownCostDialog(true);
-      if (hasConsoleBillingAccess()) {
-        setShowCostDialog(true);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages.length, showCostDialog, haveShownCostDialog]);
   const sandboxAskCallback: SandboxAskCallback = useCallback(async (hostPattern: NetworkHostPattern) => {
     // If running as a swarm worker, forward the request to the leader via mailbox
     if (isAgentSwarmsEnabled() && isSwarmWorker()) {
