@@ -91,24 +91,17 @@ export function onChangeAppState({
     notifyPermissionModeChanged(newMode)
   }
 
-  // mainLoopModel: remove it from settings?
-  if (
-    newState.mainLoopModel !== oldState.mainLoopModel &&
-    newState.mainLoopModel === null
-  ) {
-    // Remove from settings
-    updateSettingsForSource('userSettings', { model: undefined })
-    setMainLoopModelOverride(null)
-  }
-
-  // mainLoopModel: add it to settings?
-  if (
-    newState.mainLoopModel !== oldState.mainLoopModel &&
-    newState.mainLoopModel !== null
-  ) {
-    // Save to settings
-    updateSettingsForSource('userSettings', { model: newState.mainLoopModel })
-    setMainLoopModelOverride(newState.mainLoopModel)
+  // mainLoopModel: update settings based on null/non-null transition
+  if (newState.mainLoopModel !== oldState.mainLoopModel) {
+    if (newState.mainLoopModel === null) {
+      // Remove from settings
+      updateSettingsForSource('userSettings', { model: undefined })
+      setMainLoopModelOverride(null)
+    } else {
+      // Save to settings
+      updateSettingsForSource('userSettings', { model: newState.mainLoopModel })
+      setMainLoopModelOverride(newState.mainLoopModel)
+    }
   }
 
   // expandedView → persist as showExpandedTodos + showSpinnerTree for backwards compat

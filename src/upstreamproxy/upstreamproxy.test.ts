@@ -39,14 +39,14 @@ describe('upstreamproxy security (SEC-007)', () => {
       expect(fp1).toBe(fp2)
     })
 
-    it('computeSpkiFingerprint returns null for garbage input', () => {
-      const fp = computeSpkiFingerprint('not a certificate at all')
-      expect(fp).toBeNull()
-    })
-
-    it('computeSpkiFingerprint returns null for empty string', () => {
-      const fp = computeSpkiFingerprint('')
-      expect(fp).toBeNull()
+    it.each([
+      ['garbage input', 'not a certificate at all'],
+      ['empty string', ''],
+      ['content without BEGIN CERTIFICATE marker', 'just some random data\nthat is not a certificate'],
+      ['HTML content (not a cert)', '<html><body>Not a certificate</body></html>'],
+      ['JSON content (not a cert)', '{"error": "not found"}'],
+    ])('returns null for %s', (_, input) => {
+      expect(computeSpkiFingerprint(input)).toBeNull()
     })
 
     it('computeSpkiFingerprint returns different values for different certs', () => {
@@ -58,26 +58,6 @@ describe('upstreamproxy security (SEC-007)', () => {
       if (fp1 && fp2) {
         expect(fp1).not.toBe(fp2)
       }
-    })
-  })
-
-  describe('PEM format validation', () => {
-    it('rejects content without BEGIN CERTIFICATE marker', () => {
-      const invalidPem = 'just some random data\nthat is not a certificate'
-      const fp = computeSpkiFingerprint(invalidPem)
-      expect(fp).toBeNull()
-    })
-
-    it('rejects HTML content (not a cert)', () => {
-      const html = '<html><body>Not a certificate</body></html>'
-      const fp = computeSpkiFingerprint(html)
-      expect(fp).toBeNull()
-    })
-
-    it('rejects JSON content (not a cert)', () => {
-      const json = '{"error": "not found"}'
-      const fp = computeSpkiFingerprint(json)
-      expect(fp).toBeNull()
     })
   })
 

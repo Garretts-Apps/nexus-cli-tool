@@ -4,7 +4,6 @@ import { clearInvokedSkillsForAgent } from '../../state/skillState.js'
 import {
   ALL_AGENT_DISALLOWED_TOOLS,
   ASYNC_AGENT_ALLOWED_TOOLS,
-  CUSTOM_AGENT_DISALLOWED_TOOLS,
   IN_PROCESS_TEAMMATE_ALLOWED_TOOLS,
 } from '../../constants/tools.js'
 import { startAgentSummarization } from '../../services/AgentSummary/agentSummary.js'
@@ -92,9 +91,6 @@ export function filterToolsForAgent({
       return true
     }
     if (ALL_AGENT_DISALLOWED_TOOLS.has(tool.name)) {
-      return false
-    }
-    if (!isBuiltIn && CUSTOM_AGENT_DISALLOWED_TOOLS.has(tool.name)) {
       return false
     }
     if (isAsync && !ASYNC_AGENT_ALLOWED_TOOLS.has(tool.name)) {

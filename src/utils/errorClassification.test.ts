@@ -35,29 +35,19 @@ describe('isExpectedError', () => {
     expect(isExpectedError('')).toBe(true)
   })
 
-  it('returns true for ENOENT errors', () => {
-    expect(isExpectedError(new Error('ENOENT: no such file'))).toBe(true)
-  })
-
-  it('returns true for EACCES errors', () => {
-    expect(isExpectedError(new Error('EACCES: permission denied'))).toBe(true)
-  })
-
-  it('returns true for EEXIST errors', () => {
-    expect(isExpectedError(new Error('EEXIST: file already exists'))).toBe(true)
+  it.each([
+    ['ENOENT errors', new Error('ENOENT: no such file')],
+    ['EACCES errors', new Error('EACCES: permission denied')],
+    ['EEXIST errors', new Error('EEXIST: file already exists')],
+    ['cancelled errors', new Error('Operation cancelled')],
+    ['abort errors', new Error('Request aborted')],
+  ])('returns true for %s', (_, err) => {
+    expect(isExpectedError(err)).toBe(true)
   })
 
   it('returns true for timeout errors', () => {
     expect(isExpectedError(new Error('Connection timeout'))).toBe(true)
     expect(isExpectedError('Request Timeout')).toBe(true)
-  })
-
-  it('returns true for cancelled errors', () => {
-    expect(isExpectedError(new Error('Operation cancelled'))).toBe(true)
-  })
-
-  it('returns true for abort errors', () => {
-    expect(isExpectedError(new Error('Request aborted'))).toBe(true)
   })
 
   it('returns true for network errors', () => {

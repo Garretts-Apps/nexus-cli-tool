@@ -167,27 +167,37 @@ export const REPEATED_529_ERROR_MESSAGE = 'Repeated 529 Overloaded errors'
 export const CUSTOM_OFF_SWITCH_MESSAGE =
   'Opus is experiencing high load, please use /model to switch to Sonnet'
 export const API_TIMEOUT_ERROR_MESSAGE = 'Request timed out'
+
+/**
+ * Factory for session-conditional error message getters.
+ * Returns a function that returns non-interactive or interactive text based on session mode.
+ */
+function makeSessionMessage(
+  nonInteractive: string,
+  interactive: string,
+): () => string {
+  return () =>
+    getIsNonInteractiveSession() ? nonInteractive : interactive
+}
+
 export function getPdfTooLargeErrorMessage(): string {
   const limits = `max ${API_PDF_MAX_PAGES} pages, ${formatFileSize(PDF_TARGET_RAW_SIZE)}`
   return getIsNonInteractiveSession()
     ? `PDF too large (${limits}). Try reading the file a different way (e.g., extract text with pdftotext).`
     : `PDF too large (${limits}). Double press esc to go back and try again, or use pdftotext to convert to text first.`
 }
-export function getPdfPasswordProtectedErrorMessage(): string {
-  return getIsNonInteractiveSession()
-    ? 'PDF is password protected. Try using a CLI tool to extract or convert the PDF.'
-    : 'PDF is password protected. Please double press esc to edit your message and try again.'
-}
-export function getPdfInvalidErrorMessage(): string {
-  return getIsNonInteractiveSession()
-    ? 'The PDF file was not valid. Try converting it to text first (e.g., pdftotext).'
-    : 'The PDF file was not valid. Double press esc to go back and try again with a different file.'
-}
-export function getImageTooLargeErrorMessage(): string {
-  return getIsNonInteractiveSession()
-    ? 'Image was too large. Try resizing the image or using a different approach.'
-    : 'Image was too large. Double press esc to go back and try again with a smaller image.'
-}
+export const getPdfPasswordProtectedErrorMessage = makeSessionMessage(
+  'PDF is password protected. Try using a CLI tool to extract or convert the PDF.',
+  'PDF is password protected. Please double press esc to edit your message and try again.',
+)
+export const getPdfInvalidErrorMessage = makeSessionMessage(
+  'The PDF file was not valid. Try converting it to text first (e.g., pdftotext).',
+  'The PDF file was not valid. Double press esc to go back and try again with a different file.',
+)
+export const getImageTooLargeErrorMessage = makeSessionMessage(
+  'Image was too large. Try resizing the image or using a different approach.',
+  'Image was too large. Double press esc to go back and try again with a smaller image.',
+)
 export function getRequestTooLargeErrorMessage(): string {
   const limits = `max ${formatFileSize(PDF_TARGET_RAW_SIZE)}`
   return getIsNonInteractiveSession()
@@ -197,17 +207,15 @@ export function getRequestTooLargeErrorMessage(): string {
 export const OAUTH_ORG_NOT_ALLOWED_ERROR_MESSAGE =
   'Your account does not have access to Nexus. Please run /login.'
 
-export function getTokenRevokedErrorMessage(): string {
-  return getIsNonInteractiveSession()
-    ? 'Your account does not have access to Claude. Please login again or contact your administrator.'
-    : TOKEN_REVOKED_ERROR_MESSAGE
-}
+export const getTokenRevokedErrorMessage = makeSessionMessage(
+  'Your account does not have access to Claude. Please login again or contact your administrator.',
+  TOKEN_REVOKED_ERROR_MESSAGE,
+)
 
-export function getOauthOrgNotAllowedErrorMessage(): string {
-  return getIsNonInteractiveSession()
-    ? 'Your organization does not have access to Claude. Please login again or contact your administrator.'
-    : OAUTH_ORG_NOT_ALLOWED_ERROR_MESSAGE
-}
+export const getOauthOrgNotAllowedErrorMessage = makeSessionMessage(
+  'Your organization does not have access to Claude. Please login again or contact your administrator.',
+  OAUTH_ORG_NOT_ALLOWED_ERROR_MESSAGE,
+)
 
 /**
  * Check if we're in CCR (Nexus Remote) mode.
