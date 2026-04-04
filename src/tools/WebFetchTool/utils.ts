@@ -1,4 +1,5 @@
 import axios, { type AxiosResponse } from 'axios'
+import { createHash } from 'crypto'
 import { LRUCache } from 'lru-cache'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -76,6 +77,15 @@ const DOMAIN_CHECK_CACHE = new LRUCache<string, true>({
   max: 128,
   ttl: 5 * 60 * 1000, // 5 minutes — shorter than URL_CACHE TTL
 })
+
+/**
+ * Hash a URL for use as a cache key
+ * This prevents pre-signed URLs (with authentication tokens in query params)
+ * from being stored as plaintext keys in the LRU cache
+ */
+function getUrlCacheKey(url: string): string {
+  return createHash('sha256').update(url).digest('hex')
+}
 
 export function clearWebFetchCache(): void {
   URL_CACHE.clear()
@@ -388,7 +398,7 @@ export async function getURLMarkdownContent(
   }
 
   // Check cache (LRUCache handles TTL automatically)
-  const cachedEntry = URL_CACHE.get(url)
+  const cachedEntry = URL_CACHE.get(getUrlCacheKey(url))
   if (cachedEntry) {
     return {
       bytes: cachedEntry.bytes,
@@ -512,7 +522,7 @@ export async function getURLMarkdownContent(
     persistedSize,
   }
   // lru-cache requires positive integers; clamp to 1 for empty responses.
-  URL_CACHE.set(url, entry, { size: Math.max(1, contentBytes) })
+  URL_CACHE.set(getUrlCacheKey(url), entry, { size: Math.max(1, contentBytes) })
   return entry
 }
 
