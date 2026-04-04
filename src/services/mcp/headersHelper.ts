@@ -13,6 +13,21 @@ import type {
   ScopedMcpServerConfig,
 } from './types.js'
 
+// Characters that have special meaning in shells and could enable injection attacks
+const SHELL_METACHARACTERS = /[;&|`$<>()\n\r'"\\]/
+
+/**
+ * Validate that a helper path does not contain shell metacharacters.
+ * Throws if the path is unsafe to pass to execFile.
+ */
+function validateHelperPath(helperPath: string): void {
+  if (SHELL_METACHARACTERS.test(helperPath)) {
+    throw new Error(
+      `headersHelper path contains shell metacharacters and was rejected for security reasons: ${helperPath}`,
+    )
+  }
+}
+
 /**
  * Check if the MCP server config comes from project settings (projectSettings or localSettings)
  * This is important for security checks
@@ -38,7 +53,10 @@ export async function getMcpHeadersFromHelper(
   }
 
   // Security check for project/local settings
-  // Skip trust check in non-interactive mode (e.g., CI/CD, automation)
+  // NOTE: Trust check is intentionally skipped in non-interactive mode (e.g., CI/CD, automation
+  // pipelines) because there is no user present to accept a trust dialog. Callers running in
+  // non-interactive contexts are assumed to have pre-authorised execution via their environment
+  // configuration (e.g., explicit headersHelper entry in a machine-managed settings file).
   if (
     'scope' in config &&
     isMcpServerFromProjectOrLocalSettings(config as ScopedMcpServerConfig) &&
@@ -58,13 +76,17 @@ export async function getMcpHeadersFromHelper(
 
   try {
     logMCPDebug(serverName, 'Executing headersHelper to get dynamic headers')
+    validateHelperPath(config.headersHelper)
     const execResult = await execFileNoThrowWithCwd(config.headersHelper, [], {
-      shell: true,
+      shell: false,
       timeout: 10000,
       // Pass server context so one helper script can serve multiple MCP servers
       // (git credential-helper style). See deshaw/anthropic-issues#28.
+      // Only pass the minimal set of variables required; do NOT spread process.env
+      // to avoid leaking API keys and other secrets to the subprocess.
       env: {
-        ...process.env,
+        PATH: process.env.PATH ?? '',
+        HOME: process.env.HOME ?? '',
         CLAUDE_CODE_MCP_SERVER_NAME: serverName,
         CLAUDE_CODE_MCP_SERVER_URL: config.url,
       },
