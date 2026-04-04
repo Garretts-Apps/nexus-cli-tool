@@ -9,6 +9,53 @@ import {
 import type { TreeSitterAnalysis } from '../../utils/bash/treeSitterAnalysis.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
 
+// SEC-004: Per-turn rate limiting for bypassPermissions mode.
+// Tracks bash executions per user turn to cap at MAX_BYPASS_BASH_PER_TURN.
+// Resets when the turn token changes (new user message).
+const MAX_BYPASS_BASH_PER_TURN = 3
+let _bypassTurnToken: string | null = null
+let _bypassTurnCount = 0
+
+/**
+ * SEC-004: Check rate limit for bash commands executed in bypassPermissions mode.
+ * Returns a warning PermissionResult when the per-turn limit is exceeded, so the
+ * caller can surface a visible acknowledgement instead of silently running unlimited
+ * shell commands without any permission checks.
+ *
+ * @param turnToken - Opaque identifier for the current user turn (e.g. parent message UUID).
+ *   Pass the same value for all bash calls within one turn; a new value resets the counter.
+ * @returns 'passthrough' while under the limit; 'ask' (with explanation) when over it.
+ */
+export function checkBypassPermissionsRateLimit(
+  turnToken: string,
+): PermissionResult {
+  if (_bypassTurnToken !== turnToken) {
+    _bypassTurnToken = turnToken
+    _bypassTurnCount = 0
+  }
+  _bypassTurnCount++
+  if (_bypassTurnCount > MAX_BYPASS_BASH_PER_TURN) {
+    logEvent('tengu_bash_bypass_rate_limit_exceeded', {
+      count: String(_bypassTurnCount),
+    })
+    return {
+      behavior: 'ask',
+      message:
+        `SEC-004: bypassPermissions mode has already executed ${_bypassTurnCount - 1} bash ` +
+        `command(s) this turn (limit: ${MAX_BYPASS_BASH_PER_TURN}). ` +
+        `Continuing without interactive review may allow prompt-injected commands to run ` +
+        `without oversight. Acknowledge to proceed.`,
+    }
+  }
+  return { behavior: 'passthrough', message: 'Within per-turn bypass limit' }
+}
+
+/** Reset the bypass rate-limit counter (used by tests). */
+export function resetBypassPermissionsRateLimitForTesting(): void {
+  _bypassTurnToken = null
+  _bypassTurnCount = 0
+}
+
 const HEREDOC_IN_SUBSTITUTION = /\$\(.*<</
 
 // Note: Backtick pattern is handled separately in validateDangerousPatterns

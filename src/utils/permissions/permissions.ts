@@ -7,6 +7,7 @@ import {
 } from '../../services/mcp/mcpStringUtils.js'
 import type { Tool, ToolPermissionContext, ToolUseContext } from '../../Tool.js'
 import { AGENT_TOOL_NAME } from '../../tools/AgentTool/constants.js'
+import { checkBypassPermissionsRateLimit } from '../../tools/BashTool/bashSecurity.js'
 import { shouldUseSandbox } from '../../tools/BashTool/shouldUseSandbox.js'
 import { BASH_TOOL_NAME } from '../../tools/BashTool/toolName.js'
 import { POWERSHELL_TOOL_NAME } from '../../tools/PowerShellTool/toolName.js'
@@ -479,6 +480,26 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 ): Promise<PermissionDecision> => {
   const result = await hasPermissionsToUseToolInner(tool, input, context)
 
+  // SEC-004: Per-turn rate limiting for bypassPermissions mode on BashTool.
+  // Even when all permission checks are bypassed, we cap bash executions to
+  // MAX_BYPASS_BASH_PER_TURN per user turn so that prompt-injected command
+  // sequences require interactive acknowledgement beyond the threshold.
+  if (
+    result.behavior === 'allow' &&
+    tool.name === BASH_TOOL_NAME &&
+    result.decisionReason?.type === 'mode' &&
+    result.decisionReason.mode === 'bypassPermissions'
+  ) {
+    const turnToken = assistantMessage.uuid
+    const rateLimitResult = checkBypassPermissionsRateLimit(turnToken)
+    if (rateLimitResult.behavior === 'ask') {
+      return {
+        behavior: 'ask',
+        message: rateLimitResult.message,
+        decisionReason: { type: 'other', reason: rateLimitResult.message },
+      }
+    }
+  }
 
   // Reset consecutive denials on any allowed tool use in auto mode.
   // This ensures that a successful tool use (even one auto-allowed by rules)
