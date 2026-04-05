@@ -1,9 +1,9 @@
 import { feature } from 'bun:bundle'
-import { APIError } from '@anthropic-ai/sdk'
+import { APIError } from './types'
 import type {
   BetaStopReason,
   BetaUsage as Usage,
-} from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
+} from './types'
 import {
   addToTotalDurationState,
   getIsNonInteractiveSession,

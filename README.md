@@ -92,6 +92,23 @@ Development follows these practices:
 - Follow existing code patterns and conventions
 - All 172 tests must pass before committing
 
+## Removed Features
+
+The following features have been removed from this distribution:
+
+### Computer Use (chicago MCP)
+- `src/utils/computerUse/` - Computer use session management, Swift loader, MCP server setup, tool rendering, and gate logic
+- `src/components/permissions/ComputerUseApproval/` - UI permission approval dialogs for computer use
+- `AppState.computerUseMcpState` field in `src/state/AppStateStore.ts` - Session-scoped app allowlist, grant flags, screenshot dims, and display tracking state
+
+These features depended on internal `@ant/computer-use-mcp` and `@ant/computer-use-swift` packages and the `feature('CHICAGO_MCP')` flag.
+
+### Claude in Chrome
+- `src/utils/claudeInChrome/` - Chrome native host bridge, MCP server setup, and tool rendering
+- `src/skills/bundled/claudeInChrome.ts` - Bundled skill for claude-in-chrome
+
+This feature depended on the internal `@ant/claude-for-chrome-mcp` package.
+
 ## License
 
 This project is proprietary software.

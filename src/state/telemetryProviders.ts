@@ -1,15 +1,14 @@
 // Tier 3 volatile runtime state: OpenTelemetry providers and counters.
 // Extracted from src/bootstrap/state.ts (ARCH-002 Phase 2).
 
-import type { Attributes, Meter, MetricOptions } from '@opentelemetry/api'
+import type { Meter, MetricOptions } from '@opentelemetry/api'
 import type { logs } from '@opentelemetry/api-logs'
 import type { LoggerProvider } from '@opentelemetry/sdk-logs'
 import type { MeterProvider } from '@opentelemetry/sdk-metrics'
 import type { BasicTracerProvider } from '@opentelemetry/sdk-trace-base'
+import type { AttributedCounter } from './../services/api/types'
 
-export type AttributedCounter = {
-  add(value: number, additionalAttributes?: Attributes): void
-}
+export type { AttributedCounter }
 
 // ── Telemetry state ──
 

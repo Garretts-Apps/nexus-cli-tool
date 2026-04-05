@@ -1,5 +1,11 @@
-import type { Anthropic } from '@anthropic-ai/sdk'
-import type { BetaMessageParam as MessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
+import type {
+  BetaMessageParam as MessageParam,
+  BetaToolUnion,
+  BetaToolUseBlockParam,
+  BetaToolResultBlockParam,
+  ContentBlock,
+  ContentBlockParam,
+} from './api/types'
 // @aws-sdk/client-bedrock-runtime is imported dynamically in countTokensWithBedrock()
 // to defer ~279KB of AWS SDK code until a Bedrock call is actually made
 import type { CountTokensCommandInput } from '@aws-sdk/client-bedrock-runtime'
@@ -36,7 +42,7 @@ const TOKEN_COUNT_MAX_TOKENS = 2048
  * Check if messages contain thinking blocks
  */
 function hasThinkingBlocks(
-  messages: Anthropic.Beta.Messages.BetaMessageParam[],
+  messages: MessageParam[],
 ): boolean {
   for (const message of messages) {
     if (message.role === 'assistant' && Array.isArray(message.content)) {
@@ -64,8 +70,8 @@ function hasThinkingBlocks(
  * but at runtime these fields may exist from API responses when tool search was enabled.
  */
 function stripToolSearchFieldsFromMessages(
-  messages: Anthropic.Beta.Messages.BetaMessageParam[],
-): Anthropic.Beta.Messages.BetaMessageParam[] {
+  messages: MessageParam[],
+): MessageParam[] {
   return messages.map(message => {
     if (!Array.isArray(message.content)) {
       return message
@@ -76,7 +82,7 @@ function stripToolSearchFieldsFromMessages(
       if (block.type === 'tool_use') {
         // Destructure to exclude any extra fields like 'caller'
         const toolUse =
-          block as Anthropic.Beta.Messages.BetaToolUseBlockParam & {
+          block as BetaToolUseBlockParam & {
             caller?: unknown
           }
         return {
@@ -90,7 +96,7 @@ function stripToolSearchFieldsFromMessages(
       // Strip tool_reference blocks from tool_result content (user messages)
       if (block.type === 'tool_result') {
         const toolResult =
-          block as Anthropic.Beta.Messages.BetaToolResultBlockParam
+          block as BetaToolResultBlockParam
         if (Array.isArray(toolResult.content)) {
           const filteredContent = (toolResult.content as unknown[]).filter(
             c => !isToolReferenceBlock(c),
@@ -129,7 +135,7 @@ export async function countTokensWithAPI(
     return 0
   }
 
-  const message: Anthropic.Beta.Messages.BetaMessageParam = {
+  const message: MessageParam = {
     role: 'user',
     content: content,
   }
@@ -138,8 +144,8 @@ export async function countTokensWithAPI(
 }
 
 export async function countMessagesTokensWithAPI(
-  messages: Anthropic.Beta.Messages.BetaMessageParam[],
-  tools: Anthropic.Beta.Messages.BetaToolUnion[],
+  messages: MessageParam[],
+  tools: BetaToolUnion[],
 ): Promise<number | null> {
   return withTokenCountVCR(messages, tools, async () => {
     try {
@@ -249,8 +255,8 @@ export function roughTokenCountEstimationForFileType(
  * - Bedrock with thinking blocks: uses Sonnet (Haiku 3.5 doesn't support thinking)
  */
 export async function countTokensViaHaikuFallback(
-  messages: Anthropic.Beta.Messages.BetaMessageParam[],
-  tools: Anthropic.Beta.Messages.BetaToolUnion[],
+  messages: MessageParam[],
+  tools: BetaToolUnion[],
 ): Promise<number | null> {
   // Check if messages contain thinking blocks
   const containsThinking = hasThinkingBlocks(messages)
@@ -350,8 +356,8 @@ export function roughTokenCountEstimationForMessage(message: {
     return roughTokenCountEstimationForContent(
       message.message?.content as
         | string
-        | Array<Anthropic.ContentBlock>
-        | Array<Anthropic.ContentBlockParam>
+        | Array<ContentBlock>
+        | Array<ContentBlockParam>
         | undefined,
     )
   }
@@ -371,8 +377,8 @@ export function roughTokenCountEstimationForMessage(message: {
 function roughTokenCountEstimationForContent(
   content:
     | string
-    | Array<Anthropic.ContentBlock>
-    | Array<Anthropic.ContentBlockParam>
+    | Array<ContentBlock>
+    | Array<ContentBlockParam>
     | undefined,
 ): number {
   if (!content) {
@@ -389,7 +395,7 @@ function roughTokenCountEstimationForContent(
 }
 
 function roughTokenCountEstimationForBlock(
-  block: string | Anthropic.ContentBlock | Anthropic.ContentBlockParam,
+  block: string | ContentBlock | ContentBlockParam,
 ): number {
   if (typeof block === 'string') {
     return roughTokenCountEstimation(block)
@@ -442,8 +448,8 @@ async function countTokensWithBedrock({
   containsThinking,
 }: {
   model: string
-  messages: Anthropic.Beta.Messages.BetaMessageParam[]
-  tools: Anthropic.Beta.Messages.BetaToolUnion[]
+  messages: MessageParam[]
+  tools: BetaToolUnion[]
   betas: string[]
   containsThinking: boolean
 }): Promise<number | null> {
