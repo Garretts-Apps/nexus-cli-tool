@@ -8,6 +8,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type {
   LLMClient,
   Message,
+  MessageParam,
   MessageRequest,
   Stream,
   StreamEvent,
@@ -138,7 +139,7 @@ export class AnthropicLLMClient implements LLMClient {
       top_p: params.top_p,
       top_k: params.top_k,
       stop_sequences: params.stop_sequences,
-    })
+    }, { signal: controller.signal })
 
     return new AnthropicStream(sdkStream, controller)
   }

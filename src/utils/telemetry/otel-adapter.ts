@@ -15,6 +15,7 @@ import type { logs } from '@opentelemetry/api-logs'
 import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base'
 import { MeterProvider as OTelMeterProvider } from '@opentelemetry/sdk-metrics'
 import { LoggerProvider as OTelLoggerProvider } from '@opentelemetry/sdk-logs'
+import { registerCleanup } from '../cleanupRegistry.js'
 import type {
   Counter,
   Histogram,
@@ -285,5 +286,6 @@ export async function createOTelTelemetryProvider(): Promise<TelemetryProvider> 
   const meter = meterProvider.getMeter('default')
 
   _otelProviderInstance = new OTelTelemetryProviderAdapter(meter, loggerProvider, tracerProvider, meterProvider)
+  registerCleanup(() => _otelProviderInstance?.shutdown())
   return _otelProviderInstance
 }
