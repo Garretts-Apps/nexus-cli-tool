@@ -115,12 +115,6 @@ src/
     node dist/main.js
     ```
 
-### 🔍 Explore with MCP
-This repo includes an **MCP Server** to let you explore the source using Claude itself:
-```bash
-claude mcp add code-explorer -- npx -y claude-code-explorer-mcp
-```
-
 ---
 
 ## 📈 SEO & Rankings

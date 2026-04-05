@@ -1,6 +1,6 @@
 # Nexus Core Skills
 
-Reusable knowledge and architectural patterns for Nexus CLI development. This document consolidates learnings from the rebuild analysis and reference architectures (res-claude-code-config, res-orchestration).
+Reusable knowledge and architectural patterns for Nexus CLI development.
 
 ## Multi-API Architecture
 

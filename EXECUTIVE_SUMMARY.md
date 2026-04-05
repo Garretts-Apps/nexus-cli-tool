@@ -287,5 +287,4 @@ ARCH-001/002/004 (240 hours):
 ---
 
 *Generated: 2026-04-04*
-*Author: Claude Code + Happy*
 *License: Same as parent project*
