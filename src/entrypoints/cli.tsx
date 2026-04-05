@@ -69,20 +69,13 @@ async function main(): Promise<void> {
     console.log(prompt.join('\n'));
     return;
   }
+  // Claude-in-Chrome feature has been removed
   if (process.argv[2] === '--claude-in-chrome-mcp') {
-    profileCheckpoint('cli_claude_in_chrome_mcp_path');
-    const {
-      runClaudeInChromeMcpServer
-    } = await import('../utils/claudeInChrome/mcpServer.js');
-    await runClaudeInChromeMcpServer();
-    return;
+    process.stderr.write('Error: Claude-in-Chrome feature has been removed\n');
+    process.exit(1);
   } else if (process.argv[2] === '--chrome-native-host') {
-    profileCheckpoint('cli_chrome_native_host_path');
-    const {
-      runChromeNativeHost
-    } = await import('../utils/claudeInChrome/chromeNativeHost.js');
-    await runChromeNativeHost();
-    return;
+    process.stderr.write('Error: Chrome Native Host feature has been removed\n');
+    process.exit(1);
   } else if (feature('CHICAGO_MCP') && process.argv[2] === '--computer-use-mcp') {
     profileCheckpoint('cli_computer_use_mcp_path');
     const {

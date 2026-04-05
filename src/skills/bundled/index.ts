@@ -1,7 +1,9 @@
 import { feature } from 'bun:bundle'
-import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
+// Stub: claudeInChrome feature has been removed
+const shouldAutoEnableClaudeInChrome = () => false
 import { registerBatchSkill } from './batch.js'
-import { registerClaudeInChromeSkill } from './claudeInChrome.js'
+// Stub: registerClaudeInChromeSkill removed with feature deletion
+const registerClaudeInChromeSkill = () => {}
 import { registerDebugSkill } from './debug.js'
 import { registerKeybindingsSkill } from './keybindings.js'
 import { registerLoremIpsumSkill } from './loremIpsum.js'
