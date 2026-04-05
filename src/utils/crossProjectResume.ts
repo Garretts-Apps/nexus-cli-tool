@@ -39,7 +39,7 @@ export function checkCrossProjectResume(
   }
 
   // Gate worktree detection to ants only for staged rollout
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     const sessionId = getSessionIdFromLog(log)
     const command = `cd ${quote([log.projectPath])} && claude --resume ${sessionId}`
     return {

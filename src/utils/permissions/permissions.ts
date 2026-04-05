@@ -579,7 +579,7 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
         createDenialTrackingState()
 
       // PowerShell requires explicit user permission in auto mode unless
-      // POWERSHELL_AUTO_MODE (ant-only build flag) is on. When disabled, this
+      // POWERSHELL_AUTO_MODE (internal-only build flag) is on. When disabled, this
       // guard keeps PS out of the classifier and skips the acceptEdits
       // fast-path below. When enabled, PS flows through to the classifier like
       // Bash — the classifier prompt gets POWERSHELL_DENY_GUIDANCE appended so
@@ -724,7 +724,7 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
 
       // Notify ants when classifier error dumped prompts (will be in /share)
       if (
-        process.env.USER_TYPE === 'ant' &&
+        process.env.INTERNAL_BUILD === '1' &&
         classifierResult.errorDumpPath &&
         context.addNotification
       ) {

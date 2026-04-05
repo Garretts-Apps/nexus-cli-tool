@@ -345,7 +345,7 @@ export function captureAPIRequest(
   // CLAUDE.md-injected payload the API received. Overwritten each turn;
   // dumpPrompts.ts already holds 5 full request bodies for ants, so this is
   // not a new retention class.
-  setLastAPIRequestMessages(process.env.USER_TYPE === 'ant' ? messages : null)
+  setLastAPIRequestMessages(process.env.INTERNAL_BUILD === '1' ? messages : null)
 }
 
 /**

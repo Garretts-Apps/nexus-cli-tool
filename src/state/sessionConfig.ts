@@ -213,7 +213,7 @@ export function setApiProviderConfigured(configured: boolean): void {
 // ── SDK Config ──
 
 let sdkAgentProgressSummariesEnabled = false
-let kairosActive = false
+let assistantModeActive = false
 let strictToolResultPairing = false
 let userMsgOptIn = false
 let sdkBetas: string[] | undefined = undefined
@@ -226,12 +226,12 @@ export function setSdkAgentProgressSummariesEnabled(value: boolean): void {
   sdkAgentProgressSummariesEnabled = value
 }
 
-export function getKairosActive(): boolean {
-  return kairosActive
+export function getAssistantModeActive(): boolean {
+  return assistantModeActive
 }
 
-export function setKairosActive(value: boolean): void {
-  kairosActive = value
+export function setAssistantModeActive(value: boolean): void {
+  assistantModeActive = value
 }
 
 export function getStrictToolResultPairing(): boolean {
@@ -244,7 +244,7 @@ export function setStrictToolResultPairing(value: boolean): void {
 
 // Field name 'userMsgOptIn' avoids excluded-string substrings ('BriefTool',
 // 'SendUserMessage' -- case-insensitive). All callers are inside feature()
-// guards so these accessors don't need their own (matches getKairosActive).
+// guards so these accessors don't need their own (matches getAssistantModeActive).
 export function getUserMsgOptIn(): boolean {
   return userMsgOptIn
 }
@@ -351,7 +351,7 @@ export function resetSessionConfigState(): void {
   apiProviderConfigured = false
   // SDK config
   sdkAgentProgressSummariesEnabled = false
-  kairosActive = false
+  assistantModeActive = false
   strictToolResultPairing = false
   userMsgOptIn = false
   sdkBetas = undefined

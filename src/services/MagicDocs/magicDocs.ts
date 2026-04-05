@@ -240,7 +240,7 @@ const updateMagicDocs = sequential(async function (
 })
 
 export async function initMagicDocs(): Promise<void> {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     // Register listener to detect magic docs when files are read
     registerFileReadListener((filePath: string, content: string) => {
       const result = detectMagicDocHeader(content)

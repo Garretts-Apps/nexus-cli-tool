@@ -221,7 +221,7 @@ export function createBridgeLogger(options: {
       suffix += chalk.dim(' \u00b7 ') + chalk.dim(branch)
     }
 
-    if (process.env.USER_TYPE === 'ant' && debugLogPath) {
+    if (process.env.INTERNAL_BUILD === '1' && debugLogPath) {
       writeStatus(
         `${chalk.yellow('[ANT-ONLY] Logs:')} ${chalk.dim(debugLogPath)}\n`,
       )

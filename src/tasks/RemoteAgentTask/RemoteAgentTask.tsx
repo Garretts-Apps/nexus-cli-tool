@@ -1,6 +1,6 @@
 import type { ToolUseBlock } from '@anthropic-ai/sdk/resources';
 import { getRemoteSessionUrl } from '../../constants/product.js';
-import { OUTPUT_FILE_TAG, REMOTE_REVIEW_PROGRESS_TAG, REMOTE_REVIEW_TAG, STATUS_TAG, SUMMARY_TAG, TASK_ID_TAG, TASK_NOTIFICATION_TAG, TASK_TYPE_TAG, TOOL_USE_ID_TAG, ULTRAPLAN_TAG } from '../../constants/xml.js';
+import { OUTPUT_FILE_TAG, REMOTE_REVIEW_PROGRESS_TAG, REMOTE_REVIEW_TAG, STATUS_TAG, SUMMARY_TAG, TASK_ID_TAG, TASK_NOTIFICATION_TAG, TASK_TYPE_TAG, TOOL_USE_ID_TAG, REMOTE_PLAN_TAG } from '../../constants/xml.js';
 import type { SDKAssistantMessage, SDKMessage } from '../../entrypoints/agentSdkTypes.js';
 import type { SetAppState, Task, TaskContext, TaskStateBase } from '../../Task.js';
 import { createTaskStateBase, generateTaskId } from '../../Task.js';
@@ -18,7 +18,7 @@ import { registerTask, updateTaskState } from '../../utils/task/framework.js';
 import { fetchSession } from '../../utils/teleport/api.js';
 import { archiveRemoteSession, pollRemoteSessionEvents } from '../../utils/teleport.js';
 import type { TodoList } from '../../utils/todo/types.js';
-import type { UltraplanPhase } from '../../utils/ultraplan/ccrSession.js';
+import type { RemotePlanPhase } from '../../utils/remote-parallel-plan/ccrSession.js';
 export type RemoteAgentTaskState = TaskStateBase & {
   type: 'remote_agent';
   remoteTaskType: RemoteTaskType;
@@ -55,9 +55,9 @@ export type RemoteAgentTaskState = TaskStateBase & {
    * ExitPlanMode is awaiting browser approval. Surfaced in the pill badge
    * and detail dialog status line.
    */
-  ultraplanPhase?: Exclude<UltraplanPhase, 'running'>;
+  remotePlanPhase?: Exclude<RemotePlanPhase, 'running'>;
 };
-const REMOTE_TASK_TYPES = ['remote-agent', 'ultraplan', 'ultrareview', 'autofix-pr', 'background-pr'] as const;
+const REMOTE_TASK_TYPES = ['remote-agent', 'remote-parallel-plan', 'ultrareview', 'autofix-pr', 'background-pr'] as const;
 export type RemoteTaskType = (typeof REMOTE_TASK_TYPES)[number];
 function isRemoteTaskType(v: string | undefined): v is RemoteTaskType {
   return (REMOTE_TASK_TYPES as readonly string[]).includes(v ?? '');
@@ -203,35 +203,35 @@ function markTaskNotified(taskId: string, setAppState: SetAppState): boolean {
 
 /**
  * Extract the plan content from the remote session log.
- * Searches all assistant messages for <ultraplan>...</ultraplan> tags.
+ * Searches all assistant messages for <remote-parallel-plan>...</remote-parallel-plan> tags.
  */
 export function extractPlanFromLog(log: SDKMessage[]): string | null {
-  // Walk backwards through assistant messages to find <ultraplan> content
+  // Walk backwards through assistant messages to find <remote-parallel-plan> content
   for (let i = log.length - 1; i >= 0; i--) {
     const msg = log[i];
     if (msg?.type !== 'assistant') continue;
     const fullText = extractTextContent(msg.message.content, '\n');
-    const plan = extractTag(fullText, ULTRAPLAN_TAG);
+    const plan = extractTag(fullText, REMOTE_PLAN_TAG);
     if (plan?.trim()) return plan.trim();
   }
   return null;
 }
 
 /**
- * Enqueue an ultraplan-specific failure notification. Unlike enqueueRemoteNotification
+ * Enqueue an remote-parallel-plan-specific failure notification. Unlike enqueueRemoteNotification
  * this does NOT instruct the model to read the raw output file (a JSONL dump that is
  * useless for plan extraction).
  */
-export function enqueueUltraplanFailureNotification(taskId: string, sessionId: string, reason: string, setAppState: SetAppState): void {
+export function enqueueRemotePlanFailureNotification(taskId: string, sessionId: string, reason: string, setAppState: SetAppState): void {
   if (!markTaskNotified(taskId, setAppState)) return;
   const sessionUrl = getRemoteTaskSessionUrl(sessionId);
   const message = `<${TASK_NOTIFICATION_TAG}>
 <${TASK_ID_TAG}>${taskId}</${TASK_ID_TAG}>
 <${TASK_TYPE_TAG}>remote_agent</${TASK_TYPE_TAG}>
 <${STATUS_TAG}>failed</${STATUS_TAG}>
-<${SUMMARY_TAG}>Ultraplan failed: ${reason}</${SUMMARY_TAG}>
+<${SUMMARY_TAG}>Remote plan failed: ${reason}</${SUMMARY_TAG}>
 </${TASK_NOTIFICATION_TAG}>
-The remote Ultraplan session did not produce a plan (${reason}). Inspect the session at ${sessionUrl} and tell the user to retry locally with plan mode.`;
+The remote plan session did not produce a plan (${reason}). Inspect the session at ${sessionUrl} and tell the user to retry locally with plan mode.`;
   enqueuePendingNotification({
     value: message,
     mode: 'task-notification'
@@ -453,7 +453,7 @@ export function registerRemoteAgentTask(options: {
     remoteTaskMetadata
   });
 
-  // Ultraplan lifecycle is owned by startDetachedPoll in ultraplan.tsx. Generic
+  // Ultraplan lifecycle is owned by startDetachedPoll in remote-parallel-plan.tsx. Generic
   // polling still runs so session.log populates for the detail view's progress
   // counts; the result-lookup guard below prevents early completion.
   // TODO(#23985): fold ExitPlanModeScanner into this poller, drop startDetachedPoll.

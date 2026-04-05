@@ -42,7 +42,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       'ctrl+l': 'app:redraw',
       'ctrl+t': 'app:toggleTodos',
       'ctrl+o': 'app:toggleTranscript',
-      ...(feature('KAIROS') || feature('KAIROS_BRIEF')
+      ...(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
         ? { 'ctrl+shift+b': 'app:toggleBrief' as const }
         : {}),
       'ctrl+shift+o': 'app:toggleTeammatePreview',
@@ -306,7 +306,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       // Note: diff:back is handled by left arrow in detail mode
     },
   },
-  // Model picker effort cycling (ant-only)
+  // Model picker effort cycling (internal-only)
   {
     context: 'ModelPicker',
     bindings: {

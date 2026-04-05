@@ -702,7 +702,7 @@ export const SettingsSchema = lazySchema(() =>
         ),
       effortLevel: z
         .enum(
-          process.env.USER_TYPE === 'ant'
+          process.env.INTERNAL_BUILD === '1'
             ? ['low', 'medium', 'high', 'max']
             : ['low', 'medium', 'high'],
         )
@@ -828,7 +828,7 @@ export const SettingsSchema = lazySchema(() =>
           'Custom directory for plan files, relative to project root. ' +
             'If not set, defaults to ~/.claude/plans/',
         ),
-      ...(process.env.USER_TYPE === 'ant'
+      ...(process.env.INTERNAL_BUILD === '1'
         ? {
             classifierPermissionsEnabled: z
               .boolean()
@@ -838,7 +838,7 @@ export const SettingsSchema = lazySchema(() =>
               ),
           }
         : {}),
-      ...(feature('PROACTIVE') || feature('KAIROS')
+      ...(feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
         ? {
             minSleepDurationMs: z
               .number()
@@ -869,7 +869,7 @@ export const SettingsSchema = lazySchema(() =>
               .describe('Enable voice mode (hold-to-talk dictation)'),
           }
         : {}),
-      ...(feature('KAIROS')
+      ...(feature('ASSISTANT_MODE')
         ? {
             assistant: z
               .boolean()
@@ -890,7 +890,7 @@ export const SettingsSchema = lazySchema(() =>
       // inbound messages into the conversation; for managed orgs this only
       // works when explicitly enabled. Which servers can connect at all is
       // still governed by allowedMcpServers/deniedMcpServers. Not
-      // feature-spread: KAIROS_CHANNELS is external:true, and the spread
+      // feature-spread: ASSISTANT_MODE_CHANNELS is external:true, and the spread
       // wrecks type inference for allowedChannelPlugins (the .passthrough()
       // catch-all gives {} instead of the array type).
       channelsEnabled: z
@@ -919,7 +919,7 @@ export const SettingsSchema = lazySchema(() =>
             'plugins may push inbound messages. Undefined falls back to the default. ' +
             'Requires channelsEnabled: true.',
         ),
-      ...(feature('KAIROS') || feature('KAIROS_BRIEF')
+      ...(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
         ? {
             defaultView: z
               .enum(['chat', 'transcript'])
@@ -947,11 +947,11 @@ export const SettingsSchema = lazySchema(() =>
         .describe(
           'Custom directory path for auto-memory storage. Supports ~/ prefix for home directory expansion. Ignored if set in projectSettings (checked-in .claude/settings.json) for security. When unset, defaults to ~/.claude/projects/<sanitized-cwd>/memory/.',
         ),
-      autoDreamEnabled: z
+      autoSummarizeEnabled: z
         .boolean()
         .optional()
         .describe(
-          'Enable background memory consolidation (auto-dream). When set, overrides the server-side default.',
+          'Enable background memory summarization (auto-summarize). When set, overrides the server-side default.',
         ),
       showThinkingSummaries: z
         .boolean()
@@ -989,7 +989,7 @@ export const SettingsSchema = lazySchema(() =>
                   .array(z.string())
                   .optional()
                   .describe('Rules for the auto mode classifier deny section'),
-                ...(process.env.USER_TYPE === 'ant'
+                ...(process.env.INTERNAL_BUILD === '1'
                   ? {
                       // Back-compat alias for ant users; external users use soft_deny
                       deny: z.array(z.string()).optional(),

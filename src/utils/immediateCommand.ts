@@ -9,7 +9,7 @@ import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growt
  */
 export function shouldInferenceConfigCommandBeImmediate(): boolean {
   return (
-    process.env.USER_TYPE === 'ant' ||
+    process.env.INTERNAL_BUILD === '1' ||
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_immediate_model_command', false)
   )
 }

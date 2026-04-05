@@ -38,7 +38,7 @@ export function UserToolSuccessMessage({
   // Hook stays inside feature() ternary so external builds don't pay a
   // per-scrollback-message store subscription — same pattern as
   // UserPromptMessage.tsx.
-  const isBriefOnly = feature('KAIROS') || feature('KAIROS_BRIEF') ?
+  const isBriefOnly = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s => s.isBriefOnly) : false;
 

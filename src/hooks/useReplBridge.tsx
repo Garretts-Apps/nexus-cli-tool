@@ -162,7 +162,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
           // crashes. Non-assistant bridges clear the pointer on teardown
           // (crash-recovery only).
           let perpetual = false;
-          if (feature('KAIROS')) {
+          if (feature('ASSISTANT_MODE')) {
             const {
               isAssistantMode
             } = await import('../assistant/index.js');
@@ -190,7 +190,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
                 resolveAndPrepend
               } = await import('../bridge/inboundAttachments.js');
               let sanitized = fields.content;
-              if (feature('KAIROS_GITHUB_WEBHOOKS')) {
+              if (feature('ASSISTANT_MODE_GITHUB_WEBHOOKS')) {
                 /* eslint-disable @typescript-eslint/no-require-imports */
                 const {
                   sanitizeInboundWebhookContent
@@ -604,7 +604,7 @@ export function useReplBridge(messages: Message[], setMessages: (action: React.S
               };
             });
 
-            // Show bridge status with URL in the transcript. perpetual (KAIROS
+            // Show bridge status with URL in the transcript. perpetual (ASSISTANT_MODE
             // assistant mode) falls back to v1 at initReplBridge.ts — skip the
             // v2-only upgrade nudge for them. Own try/catch so a cosmetic
             // GrowthBook hiccup doesn't hit the outer init-failure handler.

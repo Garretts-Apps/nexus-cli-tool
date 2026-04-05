@@ -360,8 +360,8 @@ import { isExtractModeActive } from '../memdir/paths.js'
 const coordinatorModeModule = feature('COORDINATOR_MODE')
   ? (require('../coordinator/coordinatorMode.js') as typeof import('../coordinator/coordinatorMode.js'))
   : null
-const proactiveModule =
-  feature('PROACTIVE') || feature('KAIROS')
+const briefModeModule =
+  feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? (require('../proactive/index.js') as typeof import('../proactive/index.js'))
     : null
 const cronSchedulerModule = feature('AGENT_TRIGGERS')
@@ -494,7 +494,7 @@ export async function runHeadless(
   },
 ): Promise<void> {
   if (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     isEnvTruthy(process.env.CLAUDE_CODE_EXIT_AFTER_FIRST_RENDER)
   ) {
     process.stderr.write(
@@ -535,15 +535,15 @@ export async function runHeadless(
 
   // Proactive activation is now handled in main.tsx before getTools() so
   // SleepTool passes isEnabled() filtering. This fallback covers the case
-  // where CLAUDE_CODE_PROACTIVE is set but main.tsx's check didn't fire
+  // where NEXUS_BRIEF_MODE is set but main.tsx's check did not fire
   // (e.g. env was injected by the SDK transport after argv parsing).
   if (
-    (feature('PROACTIVE') || feature('KAIROS')) &&
-    proactiveModule &&
-    !proactiveModule.isProactiveActive() &&
-    isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE)
+    (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) &&
+    briefModeModule &&
+    !briefModeModule.isProactiveActive() &&
+    isEnvTruthy(process.env.NEXUS_BRIEF_MODE)
   ) {
-    proactiveModule.activateProactive('command')
+    briefModeModule.activateProactive('command')
   }
 
   // Periodically force a full GC to keep memory usage in check
@@ -1672,7 +1672,7 @@ function runHeadlessStreaming(
       // handler re-runs the full gate); just avoids dead buttons.
       let capabilities: { experimental?: Record<string, unknown> } | undefined
       if (
-        (feature('KAIROS') || feature('KAIROS_CHANNELS')) &&
+        (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) &&
         connection.type === 'connected' &&
         connection.capabilities.experimental
       ) {
@@ -1834,12 +1834,12 @@ function runHeadlessStreaming(
   // setTimeout(0) yields to the event loop so pending stdin messages
   // (interrupts, user messages) are processed before the tick fires.
   const scheduleProactiveTick =
-    feature('PROACTIVE') || feature('KAIROS')
+    feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
       ? () => {
           setTimeout(() => {
             if (
-              !proactiveModule?.isProactiveActive() ||
-              proactiveModule.isProactivePaused() ||
+              !briefModeModule?.isProactiveActive() ||
+              briefModeModule.isProactivePaused() ||
               inputClosed
             ) {
               return
@@ -2476,9 +2476,9 @@ function runHeadlessStreaming(
 
     // Proactive tick: if proactive is active and queue is empty, inject a tick
     if (
-      (feature('PROACTIVE') || feature('KAIROS')) &&
-      proactiveModule?.isProactiveActive() &&
-      !proactiveModule.isProactivePaused()
+      (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) &&
+      briefModeModule?.isProactiveActive() &&
+      !briefModeModule.isProactivePaused()
     ) {
       if (peek(isMainThread) === undefined && !inputClosed) {
         scheduleProactiveTick!()
@@ -2706,7 +2706,7 @@ function runHeadlessStreaming(
   if (
     feature('AGENT_TRIGGERS') &&
     cronSchedulerModule &&
-    cronGate?.isKairosCronEnabled()
+    cronGate?.isAssistantModeCronEnabled()
   ) {
     cronScheduler = cronSchedulerModule.createCronScheduler({
       onFire: prompt => {
@@ -2730,7 +2730,7 @@ function runHeadlessStreaming(
       },
       isLoading: () => running || inputClosed,
       getJitterConfig: cronJitterConfigModule?.getCronJitterConfig,
-      isKilled: () => !cronGate?.isKairosCronEnabled(),
+      isKilled: () => !cronGate?.isAssistantModeCronEnabled(),
     })
     cronScheduler.start()
   }
@@ -2831,7 +2831,7 @@ function runHeadlessStreaming(
 
       if (message.type === 'control_request') {
         if (message.request.subtype === 'interrupt') {
-          // Track escapes for attribution (ant-only feature)
+          // Track escapes for attribution (internal-only feature)
           if (feature('COMMIT_ATTRIBUTION')) {
             setAppState(prev => ({
               ...prev,
@@ -2927,7 +2927,7 @@ function runHeadlessStreaming(
               prev.toolPermissionContext,
               output,
             ),
-            isUltraplanMode: m.ultraplan ?? prev.isUltraplanMode,
+            isRemotePlanMode: m.remotePlan ?? prev.isRemotePlanMode,
           }))
           // handleSetPermissionMode sends the control_response; the
           // notifySessionMetadataChanged that used to follow here is
@@ -3767,7 +3767,7 @@ function runHeadlessStreaming(
             ...getSettingsWithSources(),
             applied: {
               model,
-              // Numeric effort (ant-only) → null; SDK schema is string-level only.
+              // Numeric effort (internal-only) → null; SDK schema is string-level only.
               effort: typeof effort === 'string' ? effort : null,
             },
           })
@@ -3875,7 +3875,7 @@ function runHeadlessStreaming(
             }
           })()
         } else if (
-          (feature('PROACTIVE') || feature('KAIROS')) &&
+          (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) &&
           (message.request as { subtype: string }).subtype === 'set_proactive'
         ) {
           const req = message.request as unknown as {
@@ -3883,12 +3883,12 @@ function runHeadlessStreaming(
             enabled: boolean
           }
           if (req.enabled) {
-            if (!proactiveModule!.isProactiveActive()) {
-              proactiveModule!.activateProactive('command')
+            if (!briefModeModule!.isProactiveActive()) {
+              briefModeModule!.activateProactive('command')
               scheduleProactiveTick!()
             }
           } else {
-            proactiveModule!.deactivateProactive()
+            briefModeModule!.deactivateProactive()
           }
           sendControlResponseSuccess(message)
         } else if (message.request.subtype === 'remote_control') {
@@ -4673,7 +4673,7 @@ function handleChannelEnable(
       response: { subtype: 'error', request_id: requestId, error },
     })
 
-  if (!(feature('KAIROS') || feature('KAIROS_CHANNELS'))) {
+  if (!(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS'))) {
     return respondError('channels feature not available in this build')
   }
 
@@ -4788,7 +4788,7 @@ function handleChannelEnable(
 function reregisterChannelHandlerAfterReconnect(
   connection: MCPServerConnection,
 ): void {
-  if (!(feature('KAIROS') || feature('KAIROS_CHANNELS'))) return
+  if (!(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS'))) return
   if (connection.type !== 'connected') return
 
   const gate = gateChannelServer(

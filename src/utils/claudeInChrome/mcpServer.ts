@@ -50,7 +50,7 @@ function isPermissionMode(raw: string): raw is PermissionMode {
  */
 function getChromeBridgeUrl(): string | undefined {
   const bridgeEnabled =
-    process.env.USER_TYPE === 'ant' ||
+    process.env.INTERNAL_BUILD === '1' ||
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_copper_bridge', false)
 
   if (!bridgeEnabled) {
@@ -167,7 +167,7 @@ export function createChromeContext(
     // version — 0.3.0 sees an unknown field (allowed in spread), 0.4.0 sees a
     // structurally-matching one. Once 0.4.0 is published, this can switch to
     // the package's exported types and the dep can be bumped.
-    ...(process.env.USER_TYPE === 'ant' && {
+    ...(process.env.INTERNAL_BUILD === '1' && {
       callAnthropicMessages: async (req: {
         model: string
         max_tokens: number

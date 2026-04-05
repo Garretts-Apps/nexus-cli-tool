@@ -7,7 +7,7 @@ import { useTerminalSize } from 'src/hooks/useTerminalSize.js';
 import { useAppState, useSetAppState } from 'src/state/AppState.js';
 import { enterTeammateView, exitTeammateView } from 'src/state/teammateViewHelpers.js';
 import type { ToolUseContext } from 'src/Tool.js';
-import { DreamTask, type DreamTaskState } from 'src/tasks/DreamTask/DreamTask.js';
+import { MemoryConsolidationTask, type MemoryConsolidationTaskState } from 'src/tasks/MemoryConsolidationTask/MemoryConsolidationTask.js';
 import { InProcessTeammateTask } from 'src/tasks/InProcessTeammateTask/InProcessTeammateTask.js';
 import type { InProcessTeammateTaskState } from 'src/tasks/InProcessTeammateTask/types.js';
 import type { LocalAgentTaskState } from 'src/tasks/LocalAgentTask/LocalAgentTask.js';
@@ -22,7 +22,7 @@ import { type BackgroundTaskState, isBackgroundTask, type TaskState } from 'src/
 import type { DeepImmutable } from 'src/types/utils.js';
 import { intersperse } from 'src/utils/array.js';
 import { TEAM_LEAD_NAME } from 'src/utils/swarm/constants.js';
-import { stopUltraplan } from '../../commands/ultraplan.js';
+import { stopRemotePlan } from '../../commands/remote-parallel-plan.js';
 import type { CommandResultDisplay } from '../../commands.js';
 import { useRegisterOverlay } from '../../context/overlayContext.js';
 import type { ExitState } from '../../hooks/useExitOnCtrlCDWithKeybindings.js';
@@ -36,7 +36,7 @@ import { Dialog } from '../design-system/Dialog.js';
 import { KeyboardShortcutHint } from '../design-system/KeyboardShortcutHint.js';
 import { AsyncAgentDetailDialog } from './AsyncAgentDetailDialog.js';
 import { BackgroundTask as BackgroundTaskComponent } from './BackgroundTask.js';
-import { DreamDetailDialog } from './DreamDetailDialog.js';
+import { MemoryConsolidationDetailDialog } from './MemoryConsolidationDetailDialog.js';
 import { InProcessTeammateDetailDialog } from './InProcessTeammateDetailDialog.js';
 import { RemoteSessionDetailDialog } from './RemoteSessionDetailDialog.js';
 import { ShellDetailDialog } from './ShellDetailDialog.js';
@@ -94,7 +94,7 @@ type ListItem = {
   type: 'dream';
   label: string;
   status: string;
-  task: DeepImmutable<DreamTaskState>;
+  task: DeepImmutable<MemoryConsolidationTaskState>;
 } | {
   id: string;
   type: 'leader';
@@ -102,7 +102,7 @@ type ListItem = {
   status: 'running';
 };
 
-// WORKFLOW_SCRIPTS is ant-only (build_flags.yaml). Static imports would leak
+// WORKFLOW_SCRIPTS is internal-only (build_flags.yaml). Static imports would leak
 // ~1.3K lines into external builds. Gate with feature() + require so the
 // bundler can dead-code-eliminate the branch.
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -278,10 +278,10 @@ export function BackgroundTasksDialog({
       } else if (currentSelection_0.type === 'monitor_mcp' && currentSelection_0.status === 'running' && killMonitorMcp) {
         killMonitorMcp(currentSelection_0.id, setAppState);
       } else if (currentSelection_0.type === 'dream' && currentSelection_0.status === 'running') {
-        void killDreamTask(currentSelection_0.id);
+        void killMemoryConsolidationTask(currentSelection_0.id);
       } else if (currentSelection_0.type === 'remote_agent' && currentSelection_0.status === 'running') {
         if (currentSelection_0.task.isUltraplan) {
-          void stopUltraplan(currentSelection_0.id, currentSelection_0.task.sessionId, setAppState);
+          void stopRemotePlan(currentSelection_0.id, currentSelection_0.task.sessionId, setAppState);
         } else {
           void killRemoteAgentTask(currentSelection_0.id);
         }
@@ -312,8 +312,8 @@ export function BackgroundTasksDialog({
   async function killTeammateTask(taskId_1: string): Promise<void> {
     await InProcessTeammateTask.kill(taskId_1, setAppState);
   }
-  async function killDreamTask(taskId_2: string): Promise<void> {
-    await DreamTask.kill(taskId_2, setAppState);
+  async function killMemoryConsolidationTask(taskId_2: string): Promise<void> {
+    await MemoryConsolidationTask.kill(taskId_2, setAppState);
   }
   async function killRemoteAgentTask(taskId_3: string): Promise<void> {
     await RemoteAgentTask.kill(taskId_3, setAppState);
@@ -378,7 +378,7 @@ export function BackgroundTasksDialog({
       case 'local_agent':
         return <AsyncAgentDetailDialog agent={task_0} onDone={onDone} onKillAgent={() => void killAgentTask(task_0.id)} onBack={goBackToList} key={`agent-${task_0.id}`} />;
       case 'remote_agent':
-        return <RemoteSessionDetailDialog session={task_0} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopUltraplan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
+        return <RemoteSessionDetailDialog session={task_0} onDone={onDone} toolUseContext={toolUseContext} onBack={goBackToList} onKill={task_0.status !== 'running' ? undefined : task_0.isUltraplan ? () => void stopRemotePlan(task_0.id, task_0.sessionId, setAppState) : () => void killRemoteAgentTask(task_0.id)} key={`session-${task_0.id}`} />;
       case 'in_process_teammate':
         return <InProcessTeammateDetailDialog teammate={task_0} onDone={onDone} onKill={task_0.status === 'running' ? () => void killTeammateTask(task_0.id) : undefined} onBack={goBackToList} onForeground={task_0.status === 'running' ? () => {
           enterTeammateView(task_0.id, setAppState);
@@ -393,9 +393,9 @@ export function BackgroundTasksDialog({
         if (!MonitorMcpDetailDialog) return null;
         return <MonitorMcpDetailDialog task={task_0} onKill={task_0.status === 'running' && killMonitorMcp ? () => killMonitorMcp(task_0.id, setAppState) : undefined} onBack={goBackToList} key={`monitor-mcp-${task_0.id}`} />;
       case 'dream':
-        return <DreamDetailDialog task={task_0} onDone={() => onDone('Background tasks dialog dismissed', {
+        return <MemoryConsolidationDetailDialog task={task_0} onDone={() => onDone('Background tasks dialog dismissed', {
           display: 'system'
-        })} onBack={goBackToList} onKill={task_0.status === 'running' ? () => void killDreamTask(task_0.id) : undefined} key={`dream-${task_0.id}`} />;
+        })} onBack={goBackToList} onKill={task_0.status === 'running' ? () => void killMemoryConsolidationTask(task_0.id) : undefined} key={`dream-${task_0.id}`} />;
     }
   }
   const runningBashCount = count(bashTasks, _ => _.status === 'running');

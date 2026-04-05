@@ -41,7 +41,7 @@ export function notifyVscodeFileUpdated(
   oldContent: string | null,
   newContent: string | null,
 ): void {
-  if (process.env.USER_TYPE !== 'ant' || !vscodeMcpClient) {
+  if (process.env.INTERNAL_BUILD !== '1' || !vscodeMcpClient) {
     return
   }
 

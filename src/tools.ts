@@ -11,19 +11,19 @@ import { NotebookEditTool } from './tools/NotebookEditTool/NotebookEditTool.js'
 import { WebFetchTool } from './tools/WebFetchTool/WebFetchTool.js'
 import { TaskStopTool } from './tools/TaskStopTool/TaskStopTool.js'
 import { BriefTool } from './tools/BriefTool/BriefTool.js'
-// Dead code elimination: conditional import for ant-only tools
+// Dead code elimination: conditional import for internal-only tools
 /* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 const REPLTool =
-  process.env.USER_TYPE === 'ant'
+  process.env.INTERNAL_BUILD === '1'
     ? require('./tools/REPLTool/REPLTool.js').REPLTool
     : null
 const SuggestBackgroundPRTool =
-  process.env.USER_TYPE === 'ant'
+  process.env.INTERNAL_BUILD === '1'
     ? require('./tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.js')
         .SuggestBackgroundPRTool
     : null
 const SleepTool =
-  feature('PROACTIVE') || feature('KAIROS')
+  feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? require('./tools/SleepTool/SleepTool.js').SleepTool
     : null
 const cronTools = feature('AGENT_TRIGGERS')
@@ -39,15 +39,15 @@ const RemoteTriggerTool = feature('AGENT_TRIGGERS_REMOTE')
 const MonitorTool = feature('MONITOR_TOOL')
   ? require('./tools/MonitorTool/MonitorTool.js').MonitorTool
   : null
-const SendUserFileTool = feature('KAIROS')
+const SendUserFileTool = feature('ASSISTANT_MODE')
   ? require('./tools/SendUserFileTool/SendUserFileTool.js').SendUserFileTool
   : null
 const PushNotificationTool =
-  feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_PUSH_NOTIFICATION')
     ? require('./tools/PushNotificationTool/PushNotificationTool.js')
         .PushNotificationTool
     : null
-const SubscribePRTool = feature('KAIROS_GITHUB_WEBHOOKS')
+const SubscribePRTool = feature('ASSISTANT_MODE_GITHUB_WEBHOOKS')
   ? require('./tools/SubscribePRTool/SubscribePRTool.js').SubscribePRTool
   : null
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
@@ -210,8 +210,8 @@ export function getAllBaseTools(): Tools {
     AskUserQuestionTool,
     SkillTool,
     EnterPlanModeTool,
-    ...(process.env.USER_TYPE === 'ant' ? [ConfigTool] : []),
-    ...(process.env.USER_TYPE === 'ant' ? [TungstenTool] : []),
+    ...(process.env.INTERNAL_BUILD === '1' ? [ConfigTool] : []),
+    ...(process.env.INTERNAL_BUILD === '1' ? [TungstenTool] : []),
     ...(SuggestBackgroundPRTool ? [SuggestBackgroundPRTool] : []),
     ...(WebBrowserTool ? [WebBrowserTool] : []),
     ...(isTodoV2Enabled()
@@ -228,7 +228,7 @@ export function getAllBaseTools(): Tools {
       ? [getTeamCreateTool(), getTeamDeleteTool()]
       : []),
     ...(VerifyPlanExecutionTool ? [VerifyPlanExecutionTool] : []),
-    ...(process.env.USER_TYPE === 'ant' && REPLTool ? [REPLTool] : []),
+    ...(process.env.INTERNAL_BUILD === '1' && REPLTool ? [REPLTool] : []),
     ...(WorkflowTool ? [WorkflowTool] : []),
     ...(SleepTool ? [SleepTool] : []),
     ...cronTools,

@@ -1,5 +1,5 @@
 import { feature } from 'bun:bundle'
-import { initAutoDream } from '../services/autoDream/autoDream.js'
+import { initAutoSummarize } from '../services/autoSummarize/autoSummarize.js'
 import { initMagicDocs } from '../services/MagicDocs/magicDocs.js'
 import { initSkillImprovement } from './hooks/skillImprovement.js'
 
@@ -34,7 +34,7 @@ export function startBackgroundHousekeeping(): void {
   if (feature('EXTRACT_MEMORIES')) {
     extractMemoriesModule!.initExtractMemories()
   }
-  initAutoDream()
+  initAutoSummarize()
   void autoUpdateMarketplacesAndPluginsInBackground()
   if (feature('LODESTONE') && getIsInteractive()) {
     void registerProtocolModule!.ensureDeepLinkProtocolRegistered()
@@ -82,7 +82,7 @@ export function startBackgroundHousekeeping(): void {
   // For long-running sessions, schedule recurring cleanup every 24 hours.
   // Both cleanup functions use marker files and locks to throttle to once per day
   // and skip immediately if another process holds the lock.
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const interval = setInterval(() => {
       void cleanupNpmCacheForAnthropicPackages()
       void cleanupOldVersionsThrottled()

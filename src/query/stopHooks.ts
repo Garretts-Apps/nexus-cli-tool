@@ -49,7 +49,7 @@ const jobClassifierModule = feature('TEMPLATES')
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 import type { QuerySource } from '../constants/querySource.js'
-import { executeAutoDream } from '../services/autoDream/autoDream.js'
+import { executeAutoSummarize } from '../services/autoSummarize/autoSummarize.js'
 import { executePromptSuggestion } from '../services/PromptSuggestion/promptSuggestion.js'
 import { isBareMode, isEnvDefinedFalsy } from '../utils/envUtils.js'
 import {
@@ -152,7 +152,7 @@ export async function* handleStopHooks(
       )
     }
     if (!toolUseContext.agentId) {
-      void executeAutoDream(stopHookContext, toolUseContext.appendSystemMessage)
+      void executeAutoSummarize(stopHookContext, toolUseContext.appendSystemMessage)
     }
   }
 

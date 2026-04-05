@@ -1,6 +1,6 @@
 import { feature } from 'bun:bundle'
 import type { Task, TaskType } from './Task.js'
-import { DreamTask } from './tasks/DreamTask/DreamTask.js'
+import { MemoryConsolidationTask } from './tasks/MemoryConsolidationTask/MemoryConsolidationTask.js'
 import { LocalAgentTask } from './tasks/LocalAgentTask/LocalAgentTask.js'
 import { LocalShellTask } from './tasks/LocalShellTask/LocalShellTask.js'
 import { RemoteAgentTask } from './tasks/RemoteAgentTask/RemoteAgentTask.js'
@@ -24,7 +24,7 @@ export function getAllTasks(): Task[] {
     LocalShellTask,
     LocalAgentTask,
     RemoteAgentTask,
-    DreamTask,
+    MemoryConsolidationTask,
   ]
   if (LocalWorkflowTask) tasks.push(LocalWorkflowTask)
   if (MonitorMcpTask) tasks.push(MonitorMcpTask)

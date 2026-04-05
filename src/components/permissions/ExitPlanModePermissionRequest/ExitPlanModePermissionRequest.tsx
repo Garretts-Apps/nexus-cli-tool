@@ -14,7 +14,7 @@ import {
 } from '../../../bootstrap/state.js';
 import { getSdkBetas } from '../../../state/sessionConfig.js';
 import { generateSessionName } from '../../../commands/rename/generateSessionName.js';
-import { launchUltraplan } from '../../../commands/ultraplan.js';
+import { launchRemotePlan } from '../../../commands/remote-parallel-plan.js';
 import type { KeyboardEvent } from '../../../ink/events/keyboard-event.js';
 import { Box, Text } from '../../../ink.js';
 import type { AppState } from '../../../state/AppStateStore.js';
@@ -54,7 +54,7 @@ import type { PastedContent } from '../../../utils/config.js';
 import type { ImageDimensions } from '../../../utils/imageResizer.js';
 import { maybeResizeAndDownsampleImageBlock } from '../../../utils/imageResizer.js';
 import { cacheImagePath, storeImage } from '../../../utils/imageStore.js';
-type ResponseValue = 'yes-bypass-permissions' | 'yes-accept-edits' | 'yes-accept-edits-keep-context' | 'yes-default-keep-context' | 'yes-resume-auto-mode' | 'yes-auto-clear-context' | 'ultraplan' | 'no';
+type ResponseValue = 'yes-bypass-permissions' | 'yes-accept-edits' | 'yes-accept-edits-keep-context' | 'yes-default-keep-context' | 'yes-resume-auto-mode' | 'yes-auto-clear-context' | 'remote-parallel-plan' | 'no';
 
 /**
  * Build permission updates for plan approval, including prompt-based rules if provided.
@@ -142,13 +142,13 @@ export function ExitPlanModePermissionRequest({
   const [pastedContents, setPastedContents] = useState<Record<number, PastedContent>>({});
   const nextPasteIdRef = useRef(0);
   const showClearContext = useAppState(s => s.settings.showClearContextOnPlanAccept) ?? false;
-  const ultraplanSessionUrl = useAppState(s => s.ultraplanSessionUrl);
-  const ultraplanLaunching = useAppState(s => s.ultraplanLaunching);
+  const remotePlanSessionUrl = useAppState(s => s.remotePlanSessionUrl);
+  const remotePlanLaunchPending = useAppState(s => s.remotePlanLaunchPending);
   // Hide the Ultraplan button while a session is active or launching —
   // selecting it would dismiss the dialog and reject locally before
-  // launchUltraplan can notice the session exists and return "already polling".
+  // launchRemotePlan can notice the session exists and return "already polling".
   // feature() must sit directly in an if/ternary (bun:bundle DCE constraint).
-  const showUltraplan = feature('ULTRAPLAN') ? !ultraplanSessionUrl && !ultraplanLaunching : false;
+  const showUltraplan = feature('REMOTE_PARALLEL_MODE') ? !remotePlanSessionUrl && !remotePlanLaunchPending : false;
   const usage = toolUseConfirm.assistantMessage.message.usage;
   const {
     mode,
@@ -285,17 +285,17 @@ export function ExitPlanModePermissionRequest({
     // Ultraplan: reject locally, teleport the plan to CCR as a seed draft.
     // Dialog dismisses immediately so the query loop unblocks; the teleport
     // runs detached and its launch message lands via the command queue.
-    if (value === 'ultraplan') {
+    if (value === 'remote-parallel-plan') {
       logEvent('tengu_plan_exit', {
         planLengthChars: currentPlan.length,
-        outcome: 'ultraplan' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        outcome: 'remote-parallel-plan' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         interviewPhaseEnabled: isPlanModeInterviewPhaseEnabled(),
         planStructureVariant
       });
       onDone();
       onReject();
       toolUseConfirm.onReject('Plan being refined via Ultraplan — please wait for the result.');
-      void launchUltraplan({
+      void launchRemotePlan({
         blurb: '',
         seedPlan: currentPlan,
         getAppState: store.getState,
@@ -738,7 +738,7 @@ export function buildPlanApprovalOptions({
   if (showUltraplan) {
     options.push({
       label: 'No, refine with Ultraplan on Nexus on the web',
-      value: 'ultraplan'
+      value: 'remote-parallel-plan'
     });
   }
   options.push({

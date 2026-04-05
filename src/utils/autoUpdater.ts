@@ -107,7 +107,7 @@ This will ensure you have access to the latest features and improvements.
  */
 export async function getMaxVersion(): Promise<string | undefined> {
   const config = await getMaxVersionConfig()
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     return config.ant || undefined
   }
   return config.external || undefined
@@ -119,7 +119,7 @@ export async function getMaxVersion(): Promise<string | undefined> {
  */
 export async function getMaxVersionMessage(): Promise<string | undefined> {
   const config = await getMaxVersionConfig()
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     return config.ant_message || undefined
   }
   return config.external_message || undefined
@@ -410,7 +410,7 @@ export async function getGcsDistTags(): Promise<NpmDistTags> {
 }
 
 /**
- * Get version history from npm registry (ant-only feature)
+ * Get version history from npm registry (internal-only feature)
  * Returns versions sorted newest-first, limited to the specified count
  *
  * Uses NATIVE_PACKAGE_URL when available because:
@@ -419,7 +419,7 @@ export async function getGcsDistTags(): Promise<NpmDistTags> {
  * 3. This prevents rollback from listing versions that don't have native binaries
  */
 export async function getVersionHistory(limit: number): Promise<string[]> {
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return []
   }
 

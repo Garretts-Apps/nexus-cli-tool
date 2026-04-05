@@ -94,13 +94,13 @@ async function executeForkedSlashCommand(command: CommandBase & PromptCommand, a
   // agent turn) cycles blocking user input. With this, N subagents run in
   // parallel and results trickle into the queue as they finish.
   //
-  // Gated on kairosEnabled (not CLAUDE_CODE_BRIEF) because the closed loop
+  // Gated on assistantModeEnabled (not CLAUDE_CODE_BRIEF) because the closed loop
   // depends on assistant-mode invariants: scheduled_tasks.json exists,
   // the main agent knows to pipe results through SendUserMessage, and
   // isMeta prompts are hidden. Outside assistant mode, context:fork commands
   // are user-invoked skills (/commit etc.) that should run synchronously
   // with the progress UI.
-  if (feature('KAIROS') && (await context.getAppState()).kairosEnabled) {
+  if (feature('ASSISTANT_MODE') && (await context.getAppState()).assistantModeEnabled) {
     // Standalone abortController — background subagents survive main-thread
     // ESC (same policy as AgentTool's async path). They're cron-driven; if
     // killed mid-run they just re-fire on the next schedule.
@@ -586,7 +586,7 @@ async function getMessagesForSlashCommand(commandName: string, args: string, set
               // to the model), so skipping them doesn't affect model context.
               // Outside fullscreen keep them so scrollback shows what ran.
               // Only skip "<Name> dismissed" modal-close notifications —
-              // commands that early-exit before showing a modal (/ultraplan
+              // commands that early-exit before showing a modal (/remote-parallel-plan
               // usage, /rename, /proactive) use display:system for actual
               // output that must reach the transcript.
               const skipTranscript = isFullscreenEnvEnabled() && typeof result === 'string' && result.endsWith(' dismissed');

@@ -738,7 +738,7 @@ export async function teleportToRemote(options: {
   description?: string;
   model?: string;
   permissionMode?: PermissionMode;
-  ultraplan?: boolean;
+  remotePlan?: boolean;
   signal: AbortSignal;
   useDefaultEnvironment?: boolean;
   /**
@@ -1132,7 +1132,7 @@ export async function teleportToRemote(options: {
           request: {
             subtype: 'set_permission_mode',
             mode: options.permissionMode,
-            ultraplan: options.ultraplan
+            remotePlan: options.remotePlan
           }
         }
       });
@@ -1153,7 +1153,7 @@ export async function teleportToRemote(options: {
       });
     }
     const requestBody = {
-      title: options.ultraplan ? `ultraplan: ${sessionTitle}` : sessionTitle,
+      title: options.remotePlan ? `remote-parallel-plan: ${sessionTitle}` : sessionTitle,
       events,
       session_context: sessionContext,
       environment_id: environmentId

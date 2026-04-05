@@ -4,15 +4,15 @@ import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/gr
 import type { Tool } from '../../Tool.js'
 import { AGENT_TOOL_NAME } from '../AgentTool/constants.js'
 
-// Dead code elimination: Brief tool name only needed when KAIROS or KAIROS_BRIEF is on
+// Dead code elimination: Brief tool name only needed when ASSISTANT_MODE or ASSISTANT_MODE_BRIEF is on
 /* eslint-disable @typescript-eslint/no-require-imports */
 const BRIEF_TOOL_NAME: string | null =
-  feature('KAIROS') || feature('KAIROS_BRIEF')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
     ? (
         require('../BriefTool/prompt.js') as typeof import('../BriefTool/prompt.js')
       ).BRIEF_TOOL_NAME
     : null
-const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS')
+const SEND_USER_FILE_TOOL_NAME: string | null = feature('ASSISTANT_MODE')
   ? (
       require('../SendUserFileTool/prompt.js') as typeof import('../SendUserFileTool/prompt.js')
     ).SEND_USER_FILE_TOOL_NAME
@@ -34,7 +34,7 @@ const PROMPT_HEAD = `Fetches full schema definitions for deferred tools so they 
 // <available-deferred-tools> block (pre-gate behavior).
 function getToolLocationHint(): string {
   const deltaEnabled =
-    process.env.USER_TYPE === 'ant' ||
+    process.env.INTERNAL_BUILD === '1' ||
     getFeatureValue_CACHED_MAY_BE_STALE('tengu_glacier_2xr', false)
   return deltaEnabled
     ? 'Deferred tools appear by name in <system-reminder> messages.'
@@ -86,7 +86,7 @@ export function isDeferredTool(tool: Tool): boolean {
   // tool's isEnabled() IS isBriefEnabled(), so being asked about its deferral
   // status implies the gate already passed.
   if (
-    (feature('KAIROS') || feature('KAIROS_BRIEF')) &&
+    (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) &&
     BRIEF_TOOL_NAME &&
     tool.name === BRIEF_TOOL_NAME
   ) {
@@ -96,7 +96,7 @@ export function isDeferredTool(tool: Tool): boolean {
   // SendUserFile is a file-delivery communication channel (sibling of Brief).
   // Must be immediately available without a ToolSearch round-trip.
   if (
-    feature('KAIROS') &&
+    feature('ASSISTANT_MODE') &&
     SEND_USER_FILE_TOOL_NAME &&
     tool.name === SEND_USER_FILE_TOOL_NAME &&
     isReplBridgeActive()

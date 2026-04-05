@@ -187,7 +187,7 @@ const EPHEMERAL_PROGRESS_TYPES = new Set([
   'bash_progress',
   'powershell_progress',
   'mcp_progress',
-  ...(feature('PROACTIVE') || feature('KAIROS')
+  ...(feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? (['sleep_progress'] as const)
     : []),
 ])
@@ -1966,7 +1966,7 @@ function applyPreservedSegmentRelinks(
 function applySnipRemovals(messages: Map<UUID, TranscriptMessage>): void {
   // Structural check — snipMetadata only exists on the boundary subtype.
   // Avoids the subtype literal which is in excluded-strings.txt
-  // (HISTORY_SNIP is ant-only; the literal must not leak into external builds).
+  // (HISTORY_SNIP is internal-only; the literal must not leak into external builds).
   type WithSnipMeta = { snipMetadata?: { removedUuids?: UUID[] } }
   const toDelete = new Set<UUID>()
   for (const entry of messages.values()) {
@@ -4872,7 +4872,7 @@ function extractFirstPromptFromChunk(chunk: string): string {
 
         if (SKIP_FIRST_PROMPT_PATTERN.test(result)) {
           if (
-            (feature('PROACTIVE') || feature('KAIROS')) &&
+            (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) &&
             result.startsWith(`<${TICK_TAG}>`)
           )
             hasTickMessages = true
@@ -4892,7 +4892,7 @@ function extractFirstPromptFromChunk(chunk: string): string {
   if (firstCommandFallback) return firstCommandFallback
   // Proactive sessions have only tick messages — give them a synthetic prompt
   // so they're not filtered out by enrichLogs
-  if ((feature('PROACTIVE') || feature('KAIROS')) && hasTickMessages)
+  if ((feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) && hasTickMessages)
     return 'Proactive session'
   return ''
 }

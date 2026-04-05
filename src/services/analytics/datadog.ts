@@ -69,7 +69,7 @@ const TAG_FIELDS = [
   'errorType',
   'http_status_range',
   'http_status',
-  'kairosActive',
+  'assistantModeActive',
   'model',
   'platform',
   'provider',
@@ -202,7 +202,7 @@ export async function trackDatadogEvent(
     }
 
     // Normalize model names for cardinality reduction (external users only)
-    if (process.env.USER_TYPE !== 'ant' && typeof allData.model === 'string') {
+    if (process.env.INTERNAL_BUILD !== '1' && typeof allData.model === 'string') {
       const shortName = getCanonicalName(allData.model.replace(/\[1m]$/i, ''))
       allData.model = shortName in MODEL_COSTS ? shortName : 'other'
     }

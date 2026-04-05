@@ -49,22 +49,22 @@ import {
 } from './sessionStorage.js'
 import type { ContentReplacementRecord } from './toolResultStorage.js'
 
-// Dead code elimination: ant-only tool names are conditionally required so
+// Dead code elimination: internal-only tool names are conditionally required so
 // their strings don't leak into external builds. Static imports always bundle.
 /* eslint-disable @typescript-eslint/no-require-imports */
 const BRIEF_TOOL_NAME: string | null =
-  feature('KAIROS') || feature('KAIROS_BRIEF')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
     ? (
         require('../tools/BriefTool/prompt.js') as typeof import('../tools/BriefTool/prompt.js')
       ).BRIEF_TOOL_NAME
     : null
 const LEGACY_BRIEF_TOOL_NAME: string | null =
-  feature('KAIROS') || feature('KAIROS_BRIEF')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
     ? (
         require('../tools/BriefTool/prompt.js') as typeof import('../tools/BriefTool/prompt.js')
       ).LEGACY_BRIEF_TOOL_NAME
     : null
-const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS')
+const SEND_USER_FILE_TOOL_NAME: string | null = feature('ASSISTANT_MODE')
   ? (
       require('../tools/SendUserFileTool/prompt.js') as typeof import('../tools/SendUserFileTool/prompt.js')
     ).SEND_USER_FILE_TOOL_NAME

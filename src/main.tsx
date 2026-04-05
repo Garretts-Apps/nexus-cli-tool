@@ -75,10 +75,10 @@ const getTeammateModeSnapshot = () => require('./utils/swarm/backends/teammateMo
 /* eslint-disable @typescript-eslint/no-require-imports */
 const coordinatorModeModule = feature('COORDINATOR_MODE') ? require('./coordinator/coordinatorMode.js') as typeof import('./coordinator/coordinatorMode.js') : null;
 /* eslint-enable @typescript-eslint/no-require-imports */
-// Dead code elimination: conditional import for KAIROS (assistant mode)
+// Dead code elimination: conditional import for ASSISTANT_MODE (assistant mode)
 /* eslint-disable @typescript-eslint/no-require-imports */
-const assistantModule = feature('KAIROS') ? require('./assistant/index.js') as typeof import('./assistant/index.js') : null;
-const kairosGate = feature('KAIROS') ? require('./assistant/gate.js') as typeof import('./assistant/gate.js') : null;
+const assistantModule = feature('ASSISTANT_MODE') ? require('./assistant/index.js') as typeof import('./assistant/index.js') : null;
+const assistantModeGate = feature('ASSISTANT_MODE') ? require('./assistant/gate.js') as typeof import('./assistant/gate.js') : null;
 import { relative, resolve } from 'path';
 import { isAnalyticsDisabled } from 'src/services/analytics/config.js';
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js';
@@ -196,7 +196,7 @@ import {
   setDirectConnectServerUrl,
   setFlagSettingsPath,
   setInitialMainLoopModel,
-  setKairosActive,
+  setAssistantModeActive,
   setQuestionPreviewFormat,
   setSdkBetas,
   setSessionSource,
@@ -591,7 +591,7 @@ type PendingAssistantChat = {
   sessionId?: string;
   discover: boolean;
 };
-const _pendingAssistantChat: PendingAssistantChat | undefined = feature('KAIROS') ? {
+const _pendingAssistantChat: PendingAssistantChat | undefined = feature('ASSISTANT_MODE') ? {
   sessionId: undefined,
   discover: false
 } : undefined;
@@ -717,7 +717,7 @@ export async function main() {
   // `claude -p "explain assistant"`. Root-flag-before-subcommand
   // (e.g. `--debug assistant`) falls through to the stub, which
   // prints usage.
-  if (feature('KAIROS') && _pendingAssistantChat) {
+  if (feature('ASSISTANT_MODE') && _pendingAssistantChat) {
     const rawArgs = process.argv.slice(2);
     if (rawArgs[0] === 'assistant') {
       const nextArg = rawArgs[1];
@@ -1066,13 +1066,13 @@ async function run(): Promise<CommanderCommand> {
     }
 
     // Assistant mode: when .claude/settings.json has assistant: true AND
-    // the tengu_kairos GrowthBook gate is on, force brief on. Permission
+    // the internal_assistant GrowthBook gate is on, force brief on. Permission
     // mode is left to the user — settings defaultMode or --permission-mode
     // apply as normal. REPL-typed messages already default to 'next'
     // priority (messageQueueManager.enqueue) so they drain mid-turn between
     // tool calls. SendUserMessage (BriefTool) is enabled via the brief env
     // var. SleepTool stays disabled (its isEnabled() gates on proactive).
-    // kairosEnabled is computed once here and reused at the
+    // assistantModeEnabled is computed once here and reused at the
     // getAssistantSystemPromptAddendum() call site further down.
     //
     // Trust gate: .claude/settings.json is attacker-controllable in an
@@ -1080,17 +1080,17 @@ async function run(): Promise<CommanderCommand> {
     // the trust dialog, and by then we've already appended
     // .claude/agents/assistant.md to the system prompt. Refuse to activate
     // until the directory has been explicitly trusted.
-    let kairosEnabled = false;
+    let assistantModeEnabled = false;
     let assistantTeamContext: Awaited<ReturnType<NonNullable<typeof assistantModule>['initializeAssistantTeam']>> | undefined;
-    if (feature('KAIROS') && (options as {
+    if (feature('ASSISTANT_MODE') && (options as {
       assistant?: boolean;
     }).assistant && assistantModule) {
       // --assistant (Agent SDK daemon mode): force the latch before
       // isAssistantMode() runs below. The daemon has already checked
-      // entitlement — don't make the child re-check tengu_kairos.
+      // entitlement — don't make the child re-check internal_assistant.
       assistantModule.markAssistantForced();
     }
-    if (feature('KAIROS') && assistantModule?.isAssistantMode() &&
+    if (feature('ASSISTANT_MODE') && assistantModule?.isAssistantMode() &&
     // Spawned teammates share the leader's cwd + settings.json, so
     // isAssistantMode() is true for them too. --agent-id being set
     // means we ARE a spawned teammate (extractTeammateOptions runs
@@ -1098,7 +1098,7 @@ async function run(): Promise<CommanderCommand> {
     // re-init the team or override teammateMode/proactive/brief.
     !(options as {
       agentId?: unknown;
-    }).agentId && kairosGate) {
+    }).agentId && assistantModeGate) {
       if (!checkHasTrustDialogAccepted()) {
         // biome-ignore lint/suspicious/noConsole:: intentional console output
         console.warn(chalk.yellow('Assistant mode disabled: directory is not trusted. Accept the trust dialog and restart.'));
@@ -1107,13 +1107,13 @@ async function run(): Promise<CommanderCommand> {
         // cache is false/missing, lazily inits GrowthBook and fetches fresh
         // (max ~5s). --assistant skips the gate entirely (daemon is
         // pre-entitled).
-        kairosEnabled = assistantModule.isAssistantForced() || (await kairosGate.isKairosEnabled());
-        if (kairosEnabled) {
+        assistantModeEnabled = assistantModule.isAssistantForced() || (await assistantModeGate.isAssistantModeEnabled());
+        if (assistantModeEnabled) {
           const opts = options as {
             brief?: boolean;
           };
           opts.brief = true;
-          setKairosActive(true);
+          setAssistantModeActive(true);
           // Pre-seed an in-process team so Agent(name: "foo") spawns
           // teammates without TeamCreate. Must run BEFORE setup() captures
           // the teammateMode snapshot (initializeAssistantTeam calls
@@ -1168,7 +1168,7 @@ async function run(): Promise<CommanderCommand> {
     // Extract disable slash commands flag
     const disableSlashCommands = options.disableSlashCommands || false;
 
-    // Extract tasks mode options (ant-only)
+    // Extract tasks mode options (internal-only)
     const tasksOption = "external" === 'ant' && (options as {
       tasks?: boolean | string;
     }).tasks;
@@ -1674,7 +1674,7 @@ async function run(): Promise<CommanderCommand> {
     // devChannels is deferred: showSetupScreens shows a confirmation dialog
     // and only appends to allowedChannels on accept.
     let devChannels: ChannelEntry[] | undefined;
-    if (feature('KAIROS') || feature('KAIROS_CHANNELS')) {
+    if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) {
       // Parse plugin:name@marketplace / server:Y tags into typed entries.
       // Tag decides trust model downstream: plugin-kind hits marketplace
       // verification + GrowthBook allowlist, server-kind always fails
@@ -1760,7 +1760,7 @@ async function run(): Promise<CommanderCommand> {
     // the tool as enabled when computing the base-tools disallow filter.
     // Conditional require avoids leaking the tool-name string into
     // external builds.
-    if ((feature('KAIROS') || feature('KAIROS_BRIEF')) && baseTools.length > 0) {
+    if ((feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) && baseTools.length > 0) {
       /* eslint-disable @typescript-eslint/no-require-imports */
       const {
         BRIEF_TOOL_NAME,
@@ -2216,7 +2216,7 @@ async function run(): Promise<CommanderCommand> {
     // BEFORE any isBriefEnabled() read below (proactive prompt's
     // briefVisibility). A persisted 'chat' after a GB kill-switch falls
     // through (entitlement fails).
-    if ((feature('KAIROS') || feature('KAIROS_BRIEF')) && !getIsNonInteractiveSession() && !getUserMsgOptIn() && getInitialSettings().defaultView === 'chat') {
+    if ((feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) && !getIsNonInteractiveSession() && !getUserMsgOptIn() && getInitialSettings().defaultView === 'chat') {
       /* eslint-disable @typescript-eslint/no-require-imports */
       const {
         isBriefEntitled
@@ -2229,16 +2229,16 @@ async function run(): Promise<CommanderCommand> {
     // Coordinator mode has its own system prompt and filters out Sleep, so
     // the generic proactive prompt would tell it to call a tool it can't
     // access and conflict with delegation instructions.
-    if ((feature('PROACTIVE') || feature('KAIROS')) && ((options as {
+    if ((feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) && ((options as {
       proactive?: boolean;
-    }).proactive || isEnvTruthy(process.env.NEXUS_PROACTIVE)) && !coordinatorModeModule?.isCoordinatorMode()) {
+    }).proactive || isEnvTruthy(process.env.NEXUS_BRIEF_MODE)) && !coordinatorModeModule?.isCoordinatorMode()) {
       /* eslint-disable @typescript-eslint/no-require-imports */
-      const briefVisibility = feature('KAIROS') || feature('KAIROS_BRIEF') ? (require('./tools/BriefTool/BriefTool.js') as typeof import('./tools/BriefTool/BriefTool.js')).isBriefEnabled() ? 'Call SendUserMessage at checkpoints to mark where things stand.' : 'The user will see any text you output.' : 'The user will see any text you output.';
+      const briefVisibility = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ? (require('./tools/BriefTool/BriefTool.js') as typeof import('./tools/BriefTool/BriefTool.js')).isBriefEnabled() ? 'Call SendUserMessage at checkpoints to mark where things stand.' : 'The user will see any text you output.' : 'The user will see any text you output.';
       /* eslint-enable @typescript-eslint/no-require-imports */
       const proactivePrompt = `\n# Proactive Mode\n\nYou are in proactive mode. Take initiative — explore, act, and make progress without waiting for instructions.\n\nStart by briefly greeting the user.\n\nYou will receive periodic <tick> prompts. These are check-ins. Do whatever seems most useful, or call Sleep if there's nothing to do. ${briefVisibility}`;
       appendSystemPrompt = appendSystemPrompt ? `${appendSystemPrompt}\n\n${proactivePrompt}` : proactivePrompt;
     }
-    if (feature('KAIROS') && kairosEnabled && assistantModule) {
+    if (feature('ASSISTANT_MODE') && assistantModeEnabled && assistantModule) {
       const assistantAddendum = assistantModule.getAssistantSystemPromptAddendum();
       appendSystemPrompt = appendSystemPrompt ? `${appendSystemPrompt}\n\n${assistantAddendum}` : assistantAddendum;
     }
@@ -2254,7 +2254,7 @@ async function run(): Promise<CommanderCommand> {
       const ctx = getRenderContext(false);
       getFpsMetrics = ctx.getFpsMetrics;
       stats = ctx.stats;
-      // Install asciicast recorder before Ink mounts (ant-only, opt-in via NEXUS_TERMINAL_RECORDING=1)
+      // Install asciicast recorder before Ink mounts (internal-only, opt-in via NEXUS_TERMINAL_RECORDING=1)
       if ("external" === 'ant') {
         installAsciicastRecorder();
       }
@@ -2289,7 +2289,7 @@ async function run(): Promise<CommanderCommand> {
         }
       }
 
-      // Check for pending agent memory snapshot updates (only for --agent mode, ant-only)
+      // Check for pending agent memory snapshot updates (only for --agent mode, internal-only)
       if (feature('AGENT_MEMORY_SNAPSHOT') && mainThreadAgentDefinition && isCustomAgent(mainThreadAgentDefinition) && mainThreadAgentDefinition.memory && mainThreadAgentDefinition.pendingSnapshotUpdate) {
         const agentDef = mainThreadAgentDefinition;
         const choice = await launchSnapshotUpdateDialog(root, {
@@ -2550,7 +2550,7 @@ async function run(): Promise<CommanderCommand> {
       systemPromptFlag: systemPrompt ? options.systemPromptFile ? 'file' : 'flag' : undefined,
       appendSystemPromptFlag: appendSystemPrompt ? options.appendSystemPromptFile ? 'file' : 'flag' : undefined,
       thinkingConfig,
-      assistantActivationPath: feature('KAIROS') && kairosEnabled ? assistantModule?.getAssistantActivationPath() : undefined
+      assistantActivationPath: feature('ASSISTANT_MODE') && assistantModeEnabled ? assistantModule?.getAssistantActivationPath() : undefined
     });
 
     // Log context metrics once at initialization
@@ -2672,15 +2672,15 @@ async function run(): Promise<CommanderCommand> {
         ...(isAdvisorEnabled() && advisorModel && {
           advisorModel
         }),
-        // kairosEnabled gates the async fire-and-forget path in
+        // assistantModeEnabled gates the async fire-and-forget path in
         // executeForkedSlashCommand (processSlashCommand.tsx:132) and
         // AgentTool's shouldRunAsync. The REPL initialState sets this at
         // ~3459; headless was defaulting to false, so the daemon child's
         // scheduled tasks and Agent-tool calls ran synchronously — N
         // overdue cron tasks on spawn = N serial subagent turns blocking
         // user input. Computed at :1620, well before this branch.
-        ...(feature('KAIROS') ? {
-          kairosEnabled
+        ...(feature('ASSISTANT_MODE') ? {
+          assistantModeEnabled
         } : {})
       };
 
@@ -2694,7 +2694,7 @@ async function run(): Promise<CommanderCommand> {
       }
 
       // Async check of auto mode gate — corrects state and disables auto if needed.
-      // Gated on TRANSCRIPT_CLASSIFIER (not USER_TYPE) so GrowthBook kill switch runs for external builds too.
+      // Gated on TRANSCRIPT_CLASSIFIER (not INTERNAL_BUILD) so GrowthBook kill switch runs for external builds too.
       if (feature('TRANSCRIPT_CLASSIFIER')) {
         void verifyAutoModeGateAccess(toolPermissionContext, headlessStore.getState().fastMode).then(({
           updateContext
@@ -2947,8 +2947,8 @@ async function run(): Promise<CommanderCommand> {
     };
     // All startup opt-in paths (--tools, --brief, defaultView) have fired
     // above; initialIsBriefOnly just reads the resulting state.
-    const initialIsBriefOnly = feature('KAIROS') || feature('KAIROS_BRIEF') ? getUserMsgOptIn() : false;
-    const fullRemoteControl = remoteControl || getRemoteControlAtStartup() || kairosEnabled;
+    const initialIsBriefOnly = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ? getUserMsgOptIn() : false;
+    const fullRemoteControl = remoteControl || getRemoteControlAtStartup() || assistantModeEnabled;
     let ccrMirrorEnabled = false;
     if (feature('CCR_MIRROR') && !fullRemoteControl) {
       /* eslint-disable @typescript-eslint/no-require-imports */
@@ -2994,7 +2994,7 @@ async function run(): Promise<CommanderCommand> {
         needsRefresh: false
       },
       statusLineText: undefined,
-      kairosEnabled,
+      assistantModeEnabled,
       remoteSessionUrl: undefined,
       remoteConnectionStatus: 'connecting',
       remoteBackgroundTaskCount: 0,
@@ -3063,11 +3063,11 @@ async function run(): Promise<CommanderCommand> {
         advisorModel
       }),
       // Compute teamContext synchronously to avoid useEffect setState during render.
-      // KAIROS: assistantTeamContext takes precedence — set earlier in the
-      // KAIROS block so Agent(name: "foo") can spawn in-process teammates
+      // ASSISTANT_MODE: assistantTeamContext takes precedence — set earlier in the
+      // ASSISTANT_MODE block so Agent(name: "foo") can spawn in-process teammates
       // without TeamCreate. computeInitialTeamContext() is for tmux-spawned
       // teammates reading their own identity, not the assistant-mode leader.
-      teamContext: feature('KAIROS') ? assistantTeamContext ?? computeInitialTeamContext?.() : computeInitialTeamContext?.()
+      teamContext: feature('ASSISTANT_MODE') ? assistantTeamContext ?? computeInitialTeamContext?.() : computeInitialTeamContext?.()
     };
 
     // Add CLI initial prompt to history
@@ -3088,7 +3088,7 @@ async function run(): Promise<CommanderCommand> {
       logSessionTelemetry();
     });
 
-    // Set up per-turn session environment data uploader (ant-only build).
+    // Set up per-turn session environment data uploader (internal-only build).
     // Default-enabled for all ant users when working in an Anthropic-owned
     // repo. Captures git/filesystem state (NOT transcripts) at each turn so
     // environments can be recreated at any user message index. Gating:
@@ -3291,7 +3291,7 @@ async function run(): Promise<CommanderCommand> {
         thinkingConfig
       }, renderAndRun);
       return;
-    } else if (feature('KAIROS') && _pendingAssistantChat && (_pendingAssistantChat.sessionId || _pendingAssistantChat.discover)) {
+    } else if (feature('ASSISTANT_MODE') && _pendingAssistantChat && (_pendingAssistantChat.sessionId || _pendingAssistantChat.discover)) {
       // `claude assistant [sessionId]` — REPL as a pure viewer client
       // of a remote assistant session. The agentic loop runs remotely; this
       // process streams live events and POSTs messages. History is lazy-
@@ -3356,9 +3356,9 @@ async function run(): Promise<CommanderCommand> {
       }
       const getAccessToken = (): string => getClaudeAIOAuthTokens()?.accessToken ?? apiCreds.accessToken;
 
-      // Brief mode activation: setKairosActive(true) satisfies BOTH opt-in
+      // Brief mode activation: setAssistantModeActive(true) satisfies BOTH opt-in
       // and entitlement for isBriefEnabled() (BriefTool.ts:124-132).
-      setKairosActive(true);
+      setAssistantModeActive(true);
       setUserMsgOptIn(true);
       setIsRemoteMode(true);
       const remoteSessionConfig = createRemoteSessionConfig(targetSessionId, getAccessToken, apiCreds.orgUUID, /* hasInitialPrompt */false, /* viewerOnly */true);
@@ -3366,7 +3366,7 @@ async function run(): Promise<CommanderCommand> {
       const assistantInitialState: AppState = {
         ...initialState,
         isBriefOnly: true,
-        kairosEnabled: false,
+        assistantModeEnabled: false,
         replBridgeEnabled: false
       };
       const remoteCommands = filterCommandsForRemoteMode(commands);
@@ -3388,7 +3388,7 @@ async function run(): Promise<CommanderCommand> {
       }, renderAndRun);
       return;
     } else if (options.resume || options.fromPr || teleport || remote !== null) {
-      // Handle resume flow - from file (ant-only), session ID, or interactive selector
+      // Handle resume flow - from file (internal-only), session ID, or interactive selector
 
       // Clear stale caches before resuming to ensure fresh file/skill discovery
       const {
@@ -3864,19 +3864,19 @@ async function run(): Promise<CommanderCommand> {
   if (feature('TRANSCRIPT_CLASSIFIER')) {
     program.addOption(new Option('--enable-auto-mode', 'Opt in to auto mode').hideHelp());
   }
-  if (feature('PROACTIVE') || feature('KAIROS')) {
+  if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
     program.addOption(new Option('--proactive', 'Start in proactive autonomous mode'));
   }
   if (feature('UDS_INBOX')) {
     program.addOption(new Option('--messaging-socket-path <path>', 'Unix domain socket path for the UDS messaging server (defaults to a tmp path)'));
   }
-  if (feature('KAIROS') || feature('KAIROS_BRIEF')) {
+  if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) {
     program.addOption(new Option('--brief', 'Enable SendUserMessage tool for agent-to-user communication'));
   }
-  if (feature('KAIROS')) {
+  if (feature('ASSISTANT_MODE')) {
     program.addOption(new Option('--assistant', 'Force assistant mode (Agent SDK daemon use)').hideHelp());
   }
-  if (feature('KAIROS') || feature('KAIROS_CHANNELS')) {
+  if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) {
     program.addOption(new Option('--channels <servers...>', 'MCP servers whose channel notifications (inbound push) should register this session. Space-separated server names.').hideHelp());
     program.addOption(new Option('--dangerously-load-development-channels <servers...>', 'Load channel servers not on the approved allowlist. For local channel development only. Shows a confirmation dialog at startup.').hideHelp());
   }
@@ -4366,7 +4366,7 @@ async function run(): Promise<CommanderCommand> {
       await bridgeMain(process.argv.slice(3));
     });
   }
-  if (feature('KAIROS')) {
+  if (feature('ASSISTANT_MODE')) {
     program.command('assistant [sessionId]').description('Attach the REPL as a client to a running bridge session. Discovers sessions via API if no sessionId given.').action(() => {
       // Argv rewriting above should have consumed `assistant [id]`
       // before commander runs. Reaching here means a root flag came first
@@ -4411,7 +4411,7 @@ async function run(): Promise<CommanderCommand> {
     });
   }
 
-  // claude rollback (ant-only)
+  // claude rollback (internal-only)
   // Rolls back to previous releases
   if ("external" === 'ant') {
     program.command('rollback [target]').description('[ANT-ONLY] Roll back to a previous release\n\nExamples:\n  claude rollback                                    Go 1 version back from current\n  claude rollback 3                                  Go 3 versions back from current\n  claude rollback 2.0.73-dev.20251217.t190658        Roll back to a specific version').option('-l, --list', 'List recent published versions with ages').option('--dry-run', 'Show what would be installed without installing').option('--safe', 'Roll back to the server-pinned safe version (set by oncall during incidents)').action(async (target?: string, options?: {
@@ -4436,7 +4436,7 @@ async function run(): Promise<CommanderCommand> {
     await installHandler(target, options);
   });
 
-  // ant-only commands
+  // internal-only commands
   if ("external" === 'ant') {
     const validateLogId = (value: string) => {
       const maybeSessionId = validateUuid(value);
@@ -4644,18 +4644,18 @@ async function logTenguInit({
   }
 }
 function maybeActivateProactive(options: unknown): void {
-  if ((feature('PROACTIVE') || feature('KAIROS')) && ((options as {
+  if ((feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) && ((options as {
     proactive?: boolean;
-  }).proactive || isEnvTruthy(process.env.NEXUS_PROACTIVE))) {
+  }).proactive || isEnvTruthy(process.env.NEXUS_BRIEF_MODE))) {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const proactiveModule = require('./proactive/index.js');
-    if (!proactiveModule.isProactiveActive()) {
-      proactiveModule.activateProactive('command');
+    const briefModeModule = require('./proactive/index.js');
+    if (!briefModeModule.isProactiveActive()) {
+      briefModeModule.activateProactive('command');
     }
   }
 }
 function maybeActivateBrief(options: unknown): void {
-  if (!(feature('KAIROS') || feature('KAIROS_BRIEF'))) return;
+  if (!(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF'))) return;
   const briefFlag = (options as {
     brief?: boolean;
   }).brief;

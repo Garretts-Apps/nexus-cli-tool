@@ -8,8 +8,8 @@ import { isQueuedCommandEditable } from 'src/utils/messageQueueManager.js'
 
 // Dead code elimination: conditional import for proactive mode
 /* eslint-disable @typescript-eslint/no-require-imports */
-const proactiveModule =
-  feature('PROACTIVE') || feature('KAIROS')
+const briefModeModule =
+  feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? require('../../proactive/index.js')
     : null
 
@@ -60,7 +60,7 @@ export function usePromptInputPlaceholder({
     if (
       submitCount < 1 &&
       promptSuggestionEnabled &&
-      !proactiveModule?.isProactiveActive()
+      !briefModeModule?.isProactiveActive()
     ) {
       return getExampleCommandFromCache()
     }

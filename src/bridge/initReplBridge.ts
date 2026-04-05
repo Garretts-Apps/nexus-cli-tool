@@ -161,7 +161,7 @@ export async function initReplBridge(
     return null
   }
 
-  // When CLAUDE_BRIDGE_OAUTH_TOKEN is set (ant-only local dev), the bridge
+  // When CLAUDE_BRIDGE_OAUTH_TOKEN is set (internal-only local dev), the bridge
   // uses that token directly via getBridgeAccessToken() — keychain state is
   // irrelevant. Skip 2b/2c to preserve that decoupling: an expired keychain
   // token shouldn't block a bridge connection that doesn't use it.
@@ -406,7 +406,7 @@ export async function initReplBridge(
   //
   // perpetual (assistant-mode session continuity via bridge-pointer.json) is
   // env-coupled and not yet implemented here — fall back to env-based when set
-  // so KAIROS users don't silently lose cross-restart continuity.
+  // so ASSISTANT_MODE users don't silently lose cross-restart continuity.
   if (isEnvLessBridgeEnabled() && !perpetual) {
     const versionError = await checkEnvLessBridgeMinVersion()
     if (versionError) {
@@ -465,16 +465,16 @@ export async function initReplBridge(
   const branch = await getBranch()
   const gitRepoUrl = await getRemoteUrl()
   const sessionIngressUrl =
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     process.env.CLAUDE_BRIDGE_SESSION_INGRESS_URL
       ? process.env.CLAUDE_BRIDGE_SESSION_INGRESS_URL
       : baseUrl
 
   // Assistant-mode sessions advertise a distinct worker_type so the web UI
-  // can filter them into a dedicated picker. KAIROS guard keeps the
+  // can filter them into a dedicated picker. ASSISTANT_MODE guard keeps the
   // assistant module out of external builds entirely.
   let workerType: BridgeWorkerType = 'claude_code'
-  if (feature('KAIROS')) {
+  if (feature('ASSISTANT_MODE')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { isAssistantMode } =
       require('../assistant/index.js') as typeof import('../assistant/index.js')

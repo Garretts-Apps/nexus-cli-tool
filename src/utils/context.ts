@@ -52,12 +52,12 @@ export function getContextWindowForModel(
   model: string,
   betas?: string[],
 ): number {
-  // Allow override via environment variable (ant-only)
+  // Allow override via environment variable (internal-only)
   // This takes precedence over all other context window resolution, including 1M detection,
   // so users can cap the effective context window for local decisions (auto-compact, etc.)
   // while still using a 1M-capable endpoint.
   if (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS
   ) {
     const override = parseInt(process.env.CLAUDE_CODE_MAX_CONTEXT_TOKENS, 10)
@@ -88,7 +88,7 @@ export function getContextWindowForModel(
   if (getSonnet1mExpTreatmentEnabled(model)) {
     return 1_000_000
   }
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const antModel = resolveAntModel(model)
     if (antModel?.contextWindow) {
       return antModel.contextWindow
@@ -153,7 +153,7 @@ export function getModelMaxOutputTokens(model: string): {
   let defaultTokens: number
   let upperLimit: number
 
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const antModel = resolveAntModel(model.toLowerCase())
     if (antModel) {
       defaultTokens = antModel.defaultMaxTokens ?? MAX_OUTPUT_TOKENS_DEFAULT

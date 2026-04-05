@@ -121,7 +121,7 @@ function logClassifierResultForAnts(
   descriptions: string[],
   result: ClassifierResult,
 ): void {
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return
   }
 
@@ -172,7 +172,7 @@ export function getSimpleCommandPrefix(command: string): string | null {
   while (i < tokens.length && ENV_VAR_ASSIGN_RE.test(tokens[i]!)) {
     const varName = tokens[i]!.split('=')[0]!
     const isAntOnlySafe =
-      process.env.USER_TYPE === 'ant' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
+      process.env.INTERNAL_BUILD === '1' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
     if (!SAFE_ENV_VARS.has(varName) && !isAntOnlySafe) {
       return null
     }
@@ -248,7 +248,7 @@ export function getFirstWordPrefix(command: string): string | null {
   while (i < tokens.length && ENV_VAR_ASSIGN_RE.test(tokens[i]!)) {
     const varName = tokens[i]!.split('=')[0]!
     const isAntOnlySafe =
-      process.env.USER_TYPE === 'ant' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
+      process.env.INTERNAL_BUILD === '1' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
     if (!SAFE_ENV_VARS.has(varName) && !isAntOnlySafe) {
       return null
     }
@@ -327,7 +327,7 @@ function extractPrefixBeforeHeredoc(command: string): string | null {
   while (i < tokens.length && ENV_VAR_ASSIGN_RE.test(tokens[i]!)) {
     const varName = tokens[i]!.split('=')[0]!
     const isAntOnlySafe =
-      process.env.USER_TYPE === 'ant' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
+      process.env.INTERNAL_BUILD === '1' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
     if (!SAFE_ENV_VARS.has(varName) && !isAntOnlySafe) {
       return null
     }
@@ -432,7 +432,7 @@ const SAFE_ENV_VARS = new Set([
 
 /**
  * ANT-ONLY environment variables that are safe to strip from commands.
- * These are only enabled when USER_TYPE === 'ant'.
+ * These are only enabled when INTERNAL_BUILD === '1'.
  *
  * SECURITY: These env vars are stripped before permission-rule matching, which
  * means `DOCKER_HOST=tcp://evil.com docker ps` matches a `Bash(docker ps:*)`
@@ -589,7 +589,7 @@ export function stripSafeWrappers(command: string): string {
     if (envVarMatch) {
       const varName = envVarMatch[1]!
       const isAntOnlySafe =
-        process.env.USER_TYPE === 'ant' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
+        process.env.INTERNAL_BUILD === '1' && ANT_ONLY_SAFE_ENV_VARS.has(varName)
       if (SAFE_ENV_VARS.has(varName) || isAntOnlySafe) {
         stripped = stripped.replace(ENV_VAR_PATTERN, '')
       }

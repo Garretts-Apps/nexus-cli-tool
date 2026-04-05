@@ -408,11 +408,11 @@ async function countBuiltInToolTokens(
         )
       : 0
 
-  // Build per-tool breakdown for always-loaded tools (ant-only, proportional
+  // Build per-tool breakdown for always-loaded tools (internal-only, proportional
   // split of the bulk count based on rough schema size estimation). Excludes
   // SkillTool since its tokens are shown in the separate Skills category.
   let systemToolDetails: SystemToolDetail[] = []
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const toolsForBreakdown = alwaysLoadedTools.filter(
       t => !toolMatchesName(t, SKILL_TOOL_NAME),
     )
@@ -1022,7 +1022,7 @@ export async function analyzeContextUsage(
   if (systemToolsTokens > 0) {
     cats.push({
       name:
-        process.env.USER_TYPE === 'ant'
+        process.env.INTERNAL_BUILD === '1'
           ? '[ANT-ONLY] System tools'
           : 'System tools',
       tokens: systemToolsTokens,
@@ -1351,11 +1351,11 @@ export async function analyzeContextUsage(
     memoryFiles: memoryFileDetails,
     mcpTools: mcpToolDetails,
     deferredBuiltinTools:
-      process.env.USER_TYPE === 'ant' ? deferredBuiltinDetails : undefined,
+      process.env.INTERNAL_BUILD === '1' ? deferredBuiltinDetails : undefined,
     systemTools:
-      process.env.USER_TYPE === 'ant' ? systemToolDetails : undefined,
+      process.env.INTERNAL_BUILD === '1' ? systemToolDetails : undefined,
     systemPromptSections:
-      process.env.USER_TYPE === 'ant' ? systemPromptSections : undefined,
+      process.env.INTERNAL_BUILD === '1' ? systemPromptSections : undefined,
     agents: agentDetails,
     slashCommands:
       slashCommandTokens > 0

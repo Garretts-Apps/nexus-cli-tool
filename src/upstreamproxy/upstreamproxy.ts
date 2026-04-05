@@ -114,7 +114,7 @@ export async function initUpstreamProxy(opts?: {
 
   // CCR injects ANTHROPIC_BASE_URL via StartupContext (sessionExecutor.ts /
   // sessionHandler.ts). getOauthConfig() is wrong here: it keys off
-  // USER_TYPE + USE_{LOCAL,STAGING}_OAUTH, none of which the container sets,
+  // INTERNAL_BUILD + USE_{LOCAL,STAGING}_OAUTH, none of which the container sets,
   // so it always returned the prod URL and the CA fetch 404'd.
   const baseUrl =
     opts?.ccrBaseUrl ??

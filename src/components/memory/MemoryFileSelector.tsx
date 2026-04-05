@@ -11,8 +11,8 @@ import { Box, Text } from '../../ink.js';
 import { useKeybinding } from '../../keybindings/useKeybinding.js';
 import { getAutoMemPath, isAutoMemoryEnabled } from '../../memdir/paths.js';
 import { logEvent } from '../../services/analytics/index.js';
-import { isAutoDreamEnabled } from '../../services/autoDream/config.js';
-import { readLastConsolidatedAt } from '../../services/autoDream/consolidationLock.js';
+import { isAutoSummarizeEnabled } from '../../services/autoSummarize/config.js';
+import { readLastConsolidatedAt } from '../../services/autoSummarize/consolidationLock.js';
 import { useAppState } from '../../state/AppState.js';
 import { getAgentMemoryDir } from '../../tools/AgentTool/agentMemory.js';
 import { openPath } from '../../utils/browser.js';
@@ -160,46 +160,46 @@ export function MemoryFileSelector(t0) {
   }
   const initialPath = t1;
   const [autoMemoryOn, setAutoMemoryOn] = useState(isAutoMemoryEnabled);
-  const [autoDreamOn, setAutoDreamOn] = useState(isAutoDreamEnabled);
-  const [showDreamRow] = useState(isAutoMemoryEnabled);
-  const isDreamRunning = useAppState(_temp6);
-  const [lastDreamAt, setLastDreamAt] = useState(null);
+  const [autoSummarizeOn, setAutoSummarizeOn] = useState(isAutoSummarizeEnabled);
+  const [showPublicRepoModeCallout] = useState(isAutoMemoryEnabled);
+  const isConsolidationRunning = useAppState(_temp6);
+  const [lastSummarizeAt, setLastSummarizeAt] = useState(null);
   let t2;
-  if ($[4] !== showDreamRow) {
+  if ($[4] !== showPublicRepoModeCallout) {
     t2 = () => {
-      if (!showDreamRow) {
+      if (!showPublicRepoModeCallout) {
         return;
       }
-      readLastConsolidatedAt().then(setLastDreamAt);
+      readLastConsolidatedAt().then(setLastSummarizeAt);
     };
-    $[4] = showDreamRow;
+    $[4] = showPublicRepoModeCallout;
     $[5] = t2;
   } else {
     t2 = $[5];
   }
   let t3;
-  if ($[6] !== isDreamRunning || $[7] !== showDreamRow) {
-    t3 = [showDreamRow, isDreamRunning];
-    $[6] = isDreamRunning;
-    $[7] = showDreamRow;
+  if ($[6] !== isConsolidationRunning || $[7] !== showPublicRepoModeCallout) {
+    t3 = [showPublicRepoModeCallout, isConsolidationRunning];
+    $[6] = isConsolidationRunning;
+    $[7] = showPublicRepoModeCallout;
     $[8] = t3;
   } else {
     t3 = $[8];
   }
   useEffect(t2, t3);
   let t4;
-  if ($[9] !== isDreamRunning || $[10] !== lastDreamAt) {
-    t4 = isDreamRunning ? "running" : lastDreamAt === null ? "" : lastDreamAt === 0 ? "never" : `last ran ${formatRelativeTimeAgo(new Date(lastDreamAt))}`;
-    $[9] = isDreamRunning;
-    $[10] = lastDreamAt;
+  if ($[9] !== isConsolidationRunning || $[10] !== lastSummarizeAt) {
+    t4 = isConsolidationRunning ? "running" : lastSummarizeAt === null ? "" : lastSummarizeAt === 0 ? "never" : `last ran ${formatRelativeTimeAgo(new Date(lastSummarizeAt))}`;
+    $[9] = isConsolidationRunning;
+    $[10] = lastSummarizeAt;
     $[11] = t4;
   } else {
     t4 = $[11];
   }
-  const dreamStatus = t4;
+  const summarizeStatus = t4;
   const [focusedToggle, setFocusedToggle] = useState(null);
   const toggleFocused = focusedToggle !== null;
-  const lastToggleIndex = showDreamRow ? 1 : 0;
+  const lastToggleIndex = showPublicRepoModeCallout ? 1 : 0;
   let t5;
   if ($[12] !== autoMemoryOn) {
     t5 = function handleToggleAutoMemory() {
@@ -219,23 +219,23 @@ export function MemoryFileSelector(t0) {
   }
   const handleToggleAutoMemory = t5;
   let t6;
-  if ($[14] !== autoDreamOn) {
-    t6 = function handleToggleAutoDream() {
-      const newValue_0 = !autoDreamOn;
+  if ($[14] !== autoSummarizeOn) {
+    t6 = function handleToggleAutoSummarize() {
+      const newValue_0 = !autoSummarizeOn;
       updateSettingsForSource("userSettings", {
-        autoDreamEnabled: newValue_0
+        autoSummarizeEnabled: newValue_0
       });
-      setAutoDreamOn(newValue_0);
-      logEvent("tengu_auto_dream_toggled", {
+      setAutoSummarizeOn(newValue_0);
+      logEvent("internal_memory_toggled", {
         enabled: newValue_0
       });
     };
-    $[14] = autoDreamOn;
+    $[14] = autoSummarizeOn;
     $[15] = t6;
   } else {
     t6 = $[15];
   }
-  const handleToggleAutoDream = t6;
+  const handleToggleAutoSummarize = t6;
   useExitOnCtrlCDWithKeybindings();
   let t7;
   if ($[16] === Symbol.for("react.memo_cache_sentinel")) {
@@ -248,18 +248,18 @@ export function MemoryFileSelector(t0) {
   }
   useKeybinding("confirm:no", onCancel, t7);
   let t8;
-  if ($[17] !== focusedToggle || $[18] !== handleToggleAutoDream || $[19] !== handleToggleAutoMemory) {
+  if ($[17] !== focusedToggle || $[18] !== handleToggleAutoSummarize || $[19] !== handleToggleAutoMemory) {
     t8 = () => {
       if (focusedToggle === 0) {
         handleToggleAutoMemory();
       } else {
         if (focusedToggle === 1) {
-          handleToggleAutoDream();
+          handleToggleAutoSummarize();
         }
       }
     };
     $[17] = focusedToggle;
-    $[18] = handleToggleAutoDream;
+    $[18] = handleToggleAutoSummarize;
     $[19] = handleToggleAutoMemory;
     $[20] = t8;
   } else {
@@ -340,13 +340,13 @@ export function MemoryFileSelector(t0) {
     t17 = $[34];
   }
   let t18;
-  if ($[35] !== autoDreamOn || $[36] !== dreamStatus || $[37] !== focusedToggle || $[38] !== isDreamRunning || $[39] !== showDreamRow) {
-    t18 = showDreamRow && <ListItem isFocused={focusedToggle === 1} styled={false}><Text color={focusedToggle === 1 ? "suggestion" : undefined}>Auto-dream: {autoDreamOn ? "on" : "off"}{dreamStatus && <Text dimColor={true}> · {dreamStatus}</Text>}{!isDreamRunning && autoDreamOn && <Text dimColor={true}> · /dream to run</Text>}</Text></ListItem>;
-    $[35] = autoDreamOn;
-    $[36] = dreamStatus;
+  if ($[35] !== autoSummarizeOn || $[36] !== summarizeStatus || $[37] !== focusedToggle || $[38] !== isConsolidationRunning || $[39] !== showPublicRepoModeCallout) {
+    t18 = showPublicRepoModeCallout && <ListItem isFocused={focusedToggle === 1} styled={false}><Text color={focusedToggle === 1 ? "suggestion" : undefined}>Auto-summarize: {autoSummarizeOn ? "on" : "off"}{summarizeStatus && <Text dimColor={true}> · {summarizeStatus}</Text>}{!isConsolidationRunning && autoSummarizeOn && <Text dimColor={true}> · /auto-summarize to run</Text>}</Text></ListItem>;
+    $[35] = autoSummarizeOn;
+    $[36] = summarizeStatus;
     $[37] = focusedToggle;
-    $[38] = isDreamRunning;
-    $[39] = showDreamRow;
+    $[38] = isConsolidationRunning;
+    $[39] = showPublicRepoModeCallout;
     $[40] = t18;
   } else {
     t18 = $[40];

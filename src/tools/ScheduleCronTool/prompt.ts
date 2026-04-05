@@ -3,7 +3,7 @@ import { getFeatureValue_CACHED_WITH_REFRESH } from '../../services/analytics/gr
 import { DEFAULT_CRON_JITTER_CONFIG } from '../../utils/cronTasks.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 
-const KAIROS_CRON_REFRESH_MS = 5 * 60 * 1000
+const ASSISTANT_MODE_CRON_REFRESH_MS = 5 * 60 * 1000
 
 export const DEFAULT_MAX_AGE_DAYS =
   DEFAULT_CRON_JITTER_CONFIG.recurringMaxAgeMs / (24 * 60 * 60 * 1000)
@@ -11,14 +11,14 @@ export const DEFAULT_MAX_AGE_DAYS =
 /**
  * Unified gate for the cron scheduling system. Combines the build-time
  * `feature('AGENT_TRIGGERS')` flag (dead code elimination) with the runtime
- * `tengu_kairos_cron` GrowthBook gate on a 5-minute refresh window.
+ * `internal_assistant_cron` GrowthBook gate on a 5-minute refresh window.
  *
- * AGENT_TRIGGERS is independently shippable from KAIROS — the cron module
+ * AGENT_TRIGGERS is independently shippable from ASSISTANT_MODE — the cron module
  * graph (cronScheduler/cronTasks/cronTasksLock/cron.ts + the three tools +
- * /loop skill) has zero imports into src/assistant/ and no feature('KAIROS')
- * calls. The REPL.tsx kairosEnabled read is safe:
- * kairosEnabled is unconditionally in AppStateStore with default false, so
- * when KAIROS is off the scheduler just gets assistantMode: false.
+ * /loop skill) has zero imports into src/assistant/ and no feature('ASSISTANT_MODE')
+ * calls. The REPL.tsx assistantModeEnabled read is safe:
+ * assistantModeEnabled is unconditionally in AppStateStore with default false, so
+ * when ASSISTANT_MODE is off the scheduler just gets assistantMode: false.
  *
  * Called from Tool.isEnabled() (lazy, post-init) and inside useEffect /
  * imperative setup, never at module scope — so the disk cache has had a
@@ -33,31 +33,31 @@ export const DEFAULT_MAX_AGE_DAYS =
  *
  * `NEXUS_DISABLE_CRON` is a local override that wins over GB.
  */
-export function isKairosCronEnabled(): boolean {
+export function isAssistantModeCronEnabled(): boolean {
   return feature('AGENT_TRIGGERS')
     ? !isEnvTruthy(process.env.NEXUS_DISABLE_CRON) &&
         getFeatureValue_CACHED_WITH_REFRESH(
-          'tengu_kairos_cron',
+          'internal_assistant_cron',
           true,
-          KAIROS_CRON_REFRESH_MS,
+          ASSISTANT_MODE_CRON_REFRESH_MS,
         )
     : false
 }
 
 /**
  * Kill switch for disk-persistent (durable) cron tasks. Narrower than
- * {@link isKairosCronEnabled} — flipping this off forces `durable: false` at
+ * {@link isAssistantModeCronEnabled} — flipping this off forces `durable: false` at
  * the call() site, leaving session-only cron (in-memory, GA) untouched.
  *
  * Defaults to `true` so Bedrock/Vertex/Foundry and DISABLE_TELEMETRY users get
  * durable cron. Does NOT consult NEXUS_DISABLE_CRON (that kills the whole
- * scheduler via isKairosCronEnabled).
+ * scheduler via isAssistantModeCronEnabled).
  */
 export function isDurableCronEnabled(): boolean {
   return getFeatureValue_CACHED_WITH_REFRESH(
-    'tengu_kairos_cron_durable',
+    'internal_assistant_cron_durable',
     true,
-    KAIROS_CRON_REFRESH_MS,
+    ASSISTANT_MODE_CRON_REFRESH_MS,
   )
 }
 

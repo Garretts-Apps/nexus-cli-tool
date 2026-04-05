@@ -28,7 +28,7 @@ import { isAutoMemoryEnabled, getAutoMemPath } from '../../memdir/paths.js'
 import { isAutoDreamEnabled } from './config.js'
 import { getProjectDir } from '../../utils/sessionStorage.js'
 import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
-import { getIsRemoteMode, getKairosActive } from '../../state/sessionConfig.js'
+import { getIsRemoteMode, getAssistantModeActive } from '../../state/sessionConfig.js'
 import { createAutoMemCanUseTool } from '../extractMemories/extractMemories.js'
 import { buildConsolidationPrompt } from './consolidationPrompt.js'
 import {
@@ -89,7 +89,7 @@ function getConfig(): AutoDreamConfig {
 }
 
 function isGateOpen(): boolean {
-  if (getKairosActive()) return false // KAIROS mode uses disk-skill dream
+  if (getAssistantModeActive()) return false // ASSISTANT_MODE mode uses disk-skill dream
   if (getIsRemoteMode()) return false
   if (!isAutoMemoryEnabled()) return false
   return isAutoDreamEnabled()

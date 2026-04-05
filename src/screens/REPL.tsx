@@ -102,7 +102,7 @@ const useVoiceIntegration: typeof import('../hooks/useVoiceIntegration.js').useV
   resetAnchor: () => {}
 });
 const VoiceKeybindingHandler: typeof import('../hooks/useVoiceIntegration.js').VoiceKeybindingHandler = feature('VOICE_MODE') ? require('../hooks/useVoiceIntegration.js').VoiceKeybindingHandler : () => null;
-// Frustration detection is ant-only (dogfooding). Conditional require so external
+// Frustration detection is internal-only (dogfooding). Conditional require so external
 // builds eliminate the module entirely (including its two O(n) useMemos that run
 // on every messages change, plus the GrowthBook fetch).
 const useFrustrationDetection: typeof import('../components/FeedbackSurvey/useFrustrationDetection.js').useFrustrationDetection = "external" === 'ant' ? require('../components/FeedbackSurvey/useFrustrationDetection.js').useFrustrationDetection : () => ({
@@ -192,11 +192,11 @@ import { restoreRemoteAgentTasks } from '../tasks/RemoteAgentTask/RemoteAgentTas
 import { useInboxPoller } from '../hooks/useInboxPoller.js';
 // Dead code elimination: conditional import for loop mode
 /* eslint-disable @typescript-eslint/no-require-imports */
-const proactiveModule = feature('PROACTIVE') || feature('KAIROS') ? require('../proactive/index.js') : null;
-const PROACTIVE_NO_OP_SUBSCRIBE = (_cb: () => void) => () => {};
-const PROACTIVE_FALSE = () => false;
+const briefModeModule = feature('BRIEF_MODE') || feature('ASSISTANT_MODE') ? require('../proactive/index.js') : null;
+const BRIEF_MODE_NO_OP_SUBSCRIBE = (_cb: () => void) => () => {};
+const BRIEF_MODE_FALSE = () => false;
 const SUGGEST_BG_PR_NOOP = (_p: string, _n: string): boolean => false;
-const useProactive = feature('PROACTIVE') || feature('KAIROS') ? require('../proactive/useProactive.js').useProactive : null;
+const useBriefMode = feature('BRIEF_MODE') || feature('ASSISTANT_MODE') ? require('../proactive/useBriefMode.js').useBriefMode : null;
 const useScheduledTasks = feature('AGENT_TRIGGERS') ? require('../hooks/useScheduledTasks.js').useScheduledTasks : null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { isAgentSwarmsEnabled } from '../utils/agentSwarmsEnabled.js';
@@ -221,7 +221,7 @@ import { RemoteCallout } from '../components/RemoteCallout.js';
 /* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 const AntModelSwitchCallout = "external" === 'ant' ? require('../components/AntModelSwitchCallout.js').AntModelSwitchCallout : null;
 const shouldShowAntModelSwitch = "external" === 'ant' ? require('../components/AntModelSwitchCallout.js').shouldShowModelSwitchCallout : (): boolean => false;
-const UndercoverAutoCallout = "external" === 'ant' ? require('../components/UndercoverAutoCallout.js').UndercoverAutoCallout : null;
+const PublicRepoModeNotice = "external" === 'ant' ? require('../components/UndercoverAutoCallout.js').PublicRepoModeNotice : null;
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 import { activityManager } from '../utils/activityManager.js';
 import { createAbortController } from '../utils/abortController.js';
@@ -294,7 +294,7 @@ import { createAttachmentMessage, getQueuedCommandAttachments } from '../utils/a
 // cause useEffect dependency changes and infinite re-render loops.
 const EMPTY_MCP_CLIENTS: MCPServerConnection[] = [];
 
-// Stable stub for useAssistantHistory's non-KAIROS branch — avoids a new
+// Stable stub for useAssistantHistory's non-ASSISTANT_MODE branch — avoids a new
 // function identity each render, which would break composedOnScroll's memo.
 const HISTORY_STUB = {
   maybeLoadOlder: (_: ScrollBoxHandle) => {}
@@ -630,8 +630,8 @@ export function REPL({
   const tasks = useAppState(s => s.tasks);
   const workerSandboxPermissions = useAppState(s => s.workerSandboxPermissions);
   const elicitation = useAppState(s => s.elicitation);
-  const ultraplanPendingChoice = useAppState(s => s.ultraplanPendingChoice);
-  const ultraplanLaunchPending = useAppState(s => s.ultraplanLaunchPending);
+  const remotePlanPendingChoice = useAppState(s => s.remotePlanPendingChoice);
+  const remotePlanLaunchPending = useAppState(s => s.remotePlanLaunchPending);
   const viewingAgentTaskId = useAppState(s => s.viewingAgentTaskId);
   const setAppState = useSetAppState();
 
@@ -679,8 +679,8 @@ export function REPL({
   // Watch for skill file changes and reload all commands
   useSkillsChange(isRemoteSession ? undefined : getProjectRoot(), setLocalCommands);
 
-  // Track proactive mode for tools dependency - SleepTool filters by proactive state
-  const proactiveActive = React.useSyncExternalStore(proactiveModule?.subscribeToProactiveChanges ?? PROACTIVE_NO_OP_SUBSCRIBE, proactiveModule?.isProactiveActive ?? PROACTIVE_FALSE);
+  // Track brief mode for tools dependency - SleepTool filters by brief mode state
+  const briefModeActive = React.useSyncExternalStore(briefModeModule?.subscribeToProactiveChanges ?? BRIEF_MODE_NO_OP_SUBSCRIBE, briefModeModule?.isProactiveActive ?? BRIEF_MODE_FALSE);
 
   // BriefTool.isEnabled() reads getUserMsgOptIn() from bootstrap state, which
   // /brief flips mid-session alongside isBriefOnly. The memo below needs a
@@ -689,7 +689,7 @@ export function REPL({
   // /brief mid-session leaves the stale tool list (no SendUserMessage) and
   // the model emits plain text the brief filter hides.
   const isBriefOnly = useAppState(s => s.isBriefOnly);
-  const localTools = useMemo(() => getTools(toolPermissionContext), [toolPermissionContext, proactiveActive, isBriefOnly]);
+  const localTools = useMemo(() => getTools(toolPermissionContext), [toolPermissionContext, briefModeActive, isBriefOnly]);
   useKickOffCheckAndDisableBypassPermissionsIfNeeded();
   useKickOffCheckAndDisableAutoModeIfNeeded();
   const [dynamicMcpConfig, setDynamicMcpConfig] = useState<Record<string, ScopedMcpServerConfig> | undefined>(initialDynamicMcpConfig);
@@ -727,7 +727,7 @@ export function REPL({
   const [ideToInstallExtension, setIDEToInstallExtension] = useState<IdeType | null>(null);
   const [ideInstallationStatus, setIDEInstallationStatus] = useState<IDEExtensionInstallationStatus | null>(null);
   const [showIdeOnboarding, setShowIdeOnboarding] = useState(false);
-  // Dead code elimination: model switch callout state (ant-only)
+  // Dead code elimination: model switch callout state (internal-only)
   const [showModelSwitchCallout, setShowModelSwitchCallout] = useState(() => {
     if ("external" === 'ant') {
       return shouldShowAntModelSwitch();
@@ -1006,7 +1006,7 @@ export function REPL({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const [showUndercoverCallout, setShowUndercoverCallout] = useState(false);
+  const [showPublicRepoModeNotice, setShowPublicRepoModeNotice] = useState(false);
   useEffect(() => {
     if ("external" === 'ant') {
       void (async () => {
@@ -1019,7 +1019,7 @@ export function REPL({
           shouldShowUndercoverAutoNotice
         } = await import('../utils/undercover.js');
         if (shouldShowUndercoverAutoNotice()) {
-          setShowUndercoverCallout(true);
+          setShowPublicRepoModeNotice(true);
         }
       })();
     }
@@ -1162,7 +1162,7 @@ export function REPL({
     }
   }, [sessionStatus, waitingFor]);
 
-  // 3P default: off — OSC 21337 is ant-only while the spec stabilizes.
+  // 3P default: off — OSC 21337 is internal-only while the spec stabilizes.
   // Gated so we can roll back if the sidebar indicator conflicts with
   // the title spinner in terminals that render both. When the flag is
   // on, the user-facing config setting controls whether it's active.
@@ -1271,12 +1271,12 @@ export function REPL({
     }
   }, [lastMsgIsHuman, lastMsg, repinScroll]);
   // Assistant-chat: lazy-load remote history on scroll-up. No-op unless
-  // KAIROS build + config.viewerOnly. feature() is build-time constant so
-  // the branch is dead-code-eliminated in non-KAIROS builds (same pattern
+  // ASSISTANT_MODE build + config.viewerOnly. feature() is build-time constant so
+  // the branch is dead-code-eliminated in non-ASSISTANT_MODE builds (same pattern
   // as useUnseenDivider above).
   const {
     maybeLoadOlder
-  } = feature('KAIROS') ?
+  } = feature('ASSISTANT_MODE') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAssistantHistory({
     config: remoteSessionConfig,
@@ -1291,7 +1291,7 @@ export function REPL({
       onRepin();
     } else {
       onScrollAway(handle);
-      if (feature('KAIROS')) maybeLoadOlder(handle);
+      if (feature('ASSISTANT_MODE')) maybeLoadOlder(handle);
       // Dismiss the companion bubble on scroll — it's absolute-positioned
       // at bottom-right and covers transcript content. Scrolling = user is
       // trying to read something under it.
@@ -1421,7 +1421,7 @@ export function REPL({
   // Ref instead of state to avoid triggering React re-renders on every
   // streaming text_delta. The spinner reads this via its animation timer.
   const responseLengthRef = useRef(0);
-  // API performance metrics ref for ant-only spinner display (TTFT/OTPS).
+  // API performance metrics ref for internal-only spinner display (TTFT/OTPS).
   // Accumulates metrics from all API requests in a turn for P50 aggregation.
   const apiMetricsRef = useRef<Array<{
     ttftMs: number;
@@ -1506,15 +1506,15 @@ export function REPL({
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
   // showBashesDialog is REPL-level so it survives PromptInput unmounting.
-  // When ultraplan approval fires while the pill dialog is open, PromptInput
-  // unmounts (focusedInputDialog → 'ultraplan-choice') but this stays true;
+  // When remote-parallel-plan approval fires while the pill dialog is open, PromptInput
+  // unmounts (focusedInputDialog → 'remote-plan-choice') but this stays true;
   // after accepting, PromptInput remounts into an empty "No tasks" dialog
-  // (the completed ultraplan task has been filtered out). Close it here.
+  // (the completed remote-parallel-plan task has been filtered out). Close it here.
   useEffect(() => {
-    if (ultraplanPendingChoice && showBashesDialog) {
+    if (remotePlanPendingChoice && showBashesDialog) {
       setShowBashesDialog(false);
     }
-  }, [ultraplanPendingChoice, showBashesDialog]);
+  }, [remotePlanPendingChoice, showBashesDialog]);
   const isTerminalFocused = useTerminalFocus();
   const terminalFocusRef = useRef(isTerminalFocused);
   terminalFocusRef.current = isTerminalFocused;
@@ -1945,13 +1945,13 @@ export function REPL({
 
       // Clear input to ensure no residual state
       setInputValue('');
-      logEvent('tengu_session_resumed', {
+      logEvent('internal_session_resumed', {
         entrypoint: entrypoint as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         success: true,
         resume_duration_ms: Math.round(performance.now() - resumeStart)
       });
     } catch (error) {
-      logEvent('tengu_session_resumed', {
+      logEvent('internal_session_resumed', {
         entrypoint: entrypoint as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         success: false
       });
@@ -2026,7 +2026,7 @@ export function REPL({
   // Permission and interactive dialogs can show even when toolJSX is set,
   // as long as shouldContinueAnimation is true. This prevents deadlocks when
   // agents set background hints while waiting for user interaction.
-  function getFocusedInputDialog(): 'message-selector' | 'sandbox-permission' | 'tool-permission' | 'prompt' | 'worker-sandbox-permission' | 'elicitation' | 'cost' | 'idle-return' | 'init-onboarding' | 'ide-onboarding' | 'model-switch' | 'undercover-callout' | 'effort-callout' | 'remote-callout' | 'lsp-recommendation' | 'plugin-hint' | 'desktop-upsell' | 'ultraplan-choice' | 'ultraplan-launch' | undefined {
+  function getFocusedInputDialog(): 'message-selector' | 'sandbox-permission' | 'tool-permission' | 'prompt' | 'worker-sandbox-permission' | 'elicitation' | 'cost' | 'idle-return' | 'init-onboarding' | 'ide-onboarding' | 'model-switch' | 'public-repo-mode-notice' | 'effort-callout' | 'remote-callout' | 'lsp-recommendation' | 'plugin-hint' | 'desktop-upsell' | 'remote-plan-choice' | 'remote-plan-launch' | undefined {
     // Exit states always take precedence
     if (isExiting || exitFlow) return undefined;
 
@@ -2046,17 +2046,17 @@ export function REPL({
     if (allowDialogsWithAnimation && elicitation.queue[0]) return 'elicitation';
     if (allowDialogsWithAnimation && showingCostDialog) return 'cost';
     if (allowDialogsWithAnimation && idleReturnPending) return 'idle-return';
-    if (feature('ULTRAPLAN') && allowDialogsWithAnimation && !isLoading && ultraplanPendingChoice) return 'ultraplan-choice';
-    if (feature('ULTRAPLAN') && allowDialogsWithAnimation && !isLoading && ultraplanLaunchPending) return 'ultraplan-launch';
+    if (feature('REMOTE_PARALLEL_MODE') && allowDialogsWithAnimation && !isLoading && remotePlanPendingChoice) return 'remote-plan-choice';
+    if (feature('REMOTE_PARALLEL_MODE') && allowDialogsWithAnimation && !isLoading && remotePlanLaunchPending) return 'remote-plan-launch';
 
     // Onboarding dialogs (special conditions)
     if (allowDialogsWithAnimation && showIdeOnboarding) return 'ide-onboarding';
 
-    // Model switch callout (ant-only, eliminated from external builds)
+    // Model switch callout (internal-only, eliminated from external builds)
     if ("external" === 'ant' && allowDialogsWithAnimation && showModelSwitchCallout) return 'model-switch';
 
-    // Undercover auto-enable explainer (ant-only, eliminated from external builds)
-    if ("external" === 'ant' && allowDialogsWithAnimation && showUndercoverCallout) return 'undercover-callout';
+    // Undercover auto-enable explainer (internal-only, eliminated from external builds)
+    if ("external" === 'ant' && allowDialogsWithAnimation && showPublicRepoModeNotice) return 'public-repo-mode-notice';
 
     // Effort callout (shown once for Opus 4.6 users when effort is enabled)
     if (allowDialogsWithAnimation && showEffortCallout) return 'effort-callout';
@@ -2122,10 +2122,10 @@ export function REPL({
     }
     logForDebugging(`[onCancel] focusedInputDialog=${focusedInputDialog} streamMode=${streamMode}`);
 
-    // Pause proactive mode so the user gets control back.
+    // Pause brief mode so the user gets control back.
     // It will resume when they submit their next input (see onSubmit).
-    if (feature('PROACTIVE') || feature('KAIROS')) {
-      proactiveModule?.pauseProactive();
+    if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
+      briefModeModule?.pauseProactive();
     }
     queryGuard.forceEnd();
     skipIdleCheckRef.current = false;
@@ -2601,8 +2601,8 @@ export function REPL({
         // stale memoized rows remount with post-compact content.
         setConversationId(randomUUID());
         // Compaction succeeded — clear the context-blocked flag so ticks resume
-        if (feature('PROACTIVE') || feature('KAIROS')) {
-          proactiveModule?.setContextBlocked(false);
+        if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
+          briefModeModule?.setContextBlocked(false);
         }
       } else if (newMessage.type === 'progress' && isEphemeralToolProgress(newMessage.data.type)) {
         // Replace the previous ephemeral progress tick for the same tool
@@ -2630,11 +2630,11 @@ export function REPL({
       // Block ticks on API errors to prevent tick → error → tick
       // runaway loops (e.g., auth failure, rate limit, blocking limit).
       // Cleared on compact boundary (above) or successful response (below).
-      if (feature('PROACTIVE') || feature('KAIROS')) {
+      if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
         if (newMessage.type === 'assistant' && 'isApiErrorMessage' in newMessage && newMessage.isApiErrorMessage) {
-          proactiveModule?.setContextBlocked(true);
+          briefModeModule?.setContextBlocked(true);
         } else if (newMessage.type === 'assistant') {
-          proactiveModule?.setContextBlocked(false);
+          briefModeModule?.setContextBlocked(false);
         }
       }
     }, newContent => {
@@ -2729,13 +2729,13 @@ export function REPL({
     if (!shouldQuery) {
       // Manual /compact sets messages directly (shouldQuery=false) bypassing
       // handleMessageFromStream. Clear context-blocked if a compact boundary
-      // is present so proactive ticks resume after compaction.
+      // is present so brief mode ticks resume after compaction.
       if (newMessages.some(isCompactBoundaryMessage)) {
         // Bump conversationId so Messages.tsx row keys change and
         // stale memoized rows remount with post-compact content.
         setConversationId(randomUUID());
-        if (feature('PROACTIVE') || feature('KAIROS')) {
-          proactiveModule?.setContextBlocked(false);
+        if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
+          briefModeModule?.setContextBlocked(false);
         }
       }
       resetLoadingState();
@@ -2772,7 +2772,7 @@ export function REPL({
     const userContext = {
       ...baseUserContext,
       ...getCoordinatorUserContext(freshMcpClients, isScratchpadEnabled() ? getScratchpadDir() : undefined),
-      ...((feature('PROACTIVE') || feature('KAIROS')) && proactiveModule?.isProactiveActive() && !terminalFocusRef.current ? {
+      ...((feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) && briefModeModule?.isProactiveActive() && !terminalFocusRef.current ? {
         terminalFocus: 'The terminal is unfocused \u2014 the user is not actively watching.'
       } : {})
     };
@@ -2808,7 +2808,7 @@ export function REPL({
     }
     queryCheckpoint('query_end');
 
-    // Capture ant-only API metrics before resetLoadingState clears the ref.
+    // Capture internal-only API metrics before resetLoadingState clears the ref.
     // For multi-request turns (tool use loops), compute P50 across all requests.
     if ("external" === 'ant' && apiMetricsRef.current.length > 0) {
       const entries = apiMetricsRef.current;
@@ -2867,7 +2867,7 @@ export function REPL({
     // Returns null if already running — no separate check-then-set.
     const thisGeneration = queryGuard.tryStart();
     if (thisGeneration === null) {
-      logEvent('tengu_concurrent_onquery_detected', {});
+      logEvent('internal_concurrent_onquery_detected', {});
 
       // Extract and enqueue user message text, skipping meta messages
       // (e.g. expanded skill content, tick prompts) that should not be
@@ -2878,7 +2878,7 @@ export function REPL({
           mode: 'prompt'
         });
         if (i === 0) {
-          logEvent('tengu_concurrent_onquery_enqueued', {});
+          logEvent('internal_concurrent_onquery_enqueued', {});
         }
       });
       return;
@@ -2932,7 +2932,7 @@ export function REPL({
         // can stop the spark animation and show post-turn UI.
         sendBridgeResultRef.current();
 
-        // Auto-hide tungsten panel content at turn end (ant-only), but keep
+        // Auto-hide tungsten panel content at turn end (internal-only), but keep
         // tungstenActiveSession set so the pill stays in the footer and the user
         // can reopen the panel. Background tmux tasks (e.g. /hunter) run for
         // minutes — wiping the session made the pill disappear entirely, forcing
@@ -2949,7 +2949,7 @@ export function REPL({
           });
         }
 
-        // Capture budget info before clearing (ant-only)
+        // Capture budget info before clearing (internal-only)
         let budgetInfo: {
           tokens: number;
           limit: number;
@@ -2970,7 +2970,7 @@ export function REPL({
         // Skip if user aborted or if in loop mode (too noisy between ticks)
         // Defer if swarm teammates are still running (show when they finish)
         const turnDurationMs = Date.now() - loadingStartTimeRef.current - totalPausedMsRef.current;
-        if ((turnDurationMs > 30000 || budgetInfo !== undefined) && !abortController.signal.aborted && !proactiveActive) {
+        if ((turnDurationMs > 30000 || budgetInfo !== undefined) && !abortController.signal.aborted && !briefModeActive) {
           const hasRunningSwarmAgents = getAllInProcessTeammateTasks(store.getState().tasks).some(t => t.status === 'running');
           if (hasRunningSwarmAgents) {
             // Only record start time on the first deferred turn
@@ -3150,8 +3150,8 @@ export function REPL({
     repinScroll();
 
     // Resume loop mode if paused
-    if (feature('PROACTIVE') || feature('KAIROS')) {
-      proactiveModule?.resumeProactive();
+    if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
+      briefModeModule?.resumeProactive();
     }
 
     // Handle immediate commands - these bypass the queue and execute right away
@@ -3171,7 +3171,7 @@ export function REPL({
       // 2. Command was triggered via keybinding (fromKeybinding option)
       const matchingCommand = commands.find(cmd => isCommandEnabled(cmd) && (cmd.name === commandName || cmd.aliases?.includes(commandName) || getCommandName(cmd) === commandName));
       if (matchingCommand?.name === 'clear' && idleHintShownRef.current) {
-        logEvent('tengu_idle_return_action', {
+        logEvent('internal_idle_return_action', {
           action: 'hint_converted' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           variant: idleHintShownRef.current as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           idleMinutes: Math.round((Date.now() - lastQueryCompletionTimeRef.current) / 60_000),
@@ -3194,11 +3194,11 @@ export function REPL({
         const pastedTextRefs = parseReferences(input).filter(r => pastedContents[r.id]?.type === 'text');
         const pastedTextCount = pastedTextRefs.length;
         const pastedTextBytes = pastedTextRefs.reduce((sum, r) => sum + (pastedContents[r.id]?.content.length ?? 0), 0);
-        logEvent('tengu_paste_text', {
+        logEvent('internal_paste_text', {
           pastedTextCount,
           pastedTextBytes
         });
-        logEvent('tengu_immediate_command_executed', {
+        logEvent('internal_immediate_command_executed', {
           commandName: matchingCommand.name as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           fromKeybinding: options?.fromKeybinding ?? false
         });
@@ -3661,7 +3661,7 @@ export function REPL({
     const prev = messagesRef.current;
     const messageIndex = prev.lastIndexOf(message);
     if (messageIndex === -1) return;
-    logEvent('tengu_conversation_rewind', {
+    logEvent('internal_conversation_rewind', {
       preRewindMessageCount: prev.length,
       postRewindMessageCount: messageIndex,
       messagesRemoved: prev.length - messageIndex,
@@ -3975,7 +3975,7 @@ export function REPL({
         timeoutMs: 0x7fffffff
       });
       hintRef.current = mode;
-      logEvent('tengu_idle_return_action', {
+      logEvent('internal_idle_return_action', {
         action: 'hint_shown' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         variant: mode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         idleMinutes: Math.round(idleMinutes),
@@ -4043,13 +4043,13 @@ export function REPL({
 
   // Scheduled tasks from .claude/scheduled_tasks.json (CronCreate/Delete/List)
   if (feature('AGENT_TRIGGERS')) {
-    // Assistant mode bypasses the isLoading gate (the proactive tick →
+    // Assistant mode bypasses the isLoading gate (the brief mode tick →
     // Sleep → tick loop would otherwise starve the scheduler).
-    // kairosEnabled is set once in initialState (main.tsx) and never mutated — no
-    // subscription needed. The tengu_kairos_cron runtime gate is checked inside
+    // assistantModeEnabled is set once in initialState (main.tsx) and never mutated — no
+    // subscription needed. The internal_assistant_cron runtime gate is checked inside
     // useScheduledTasks's effect (not here) since wrapping a hook call in a dynamic
     // condition would break rules-of-hooks.
-    const assistantMode = store.getState().kairosEnabled;
+    const assistantMode = store.getState().assistantModeEnabled;
     // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
     useScheduledTasks!({
       isLoading,
@@ -4075,7 +4075,7 @@ export function REPL({
     // Loop mode: auto-tick when enabled (via /job command)
     // eslint-disable-next-line react-hooks/rules-of-hooks
     // biome-ignore lint/correctness/useHookAtTopLevel: conditional for dead code elimination in external builds
-    useProactive?.({
+    useBriefMode?.({
       // Suppress ticks while an initial message is pending — the initial
       // message will be processed asynchronously and a premature tick would
       // race with it, causing concurrent-query enqueue of expanded skill text.
@@ -4413,9 +4413,9 @@ export function REPL({
       // Its raw useInput handler only stops propagation when a selection
       // exists — without one, ctrl+c falls through to CancelRequestHandler.
       <ScrollKeybindingHandler scrollRef={scrollRef}
-      // Yield wheel/ctrl+u/d to UltraplanChoiceDialog's own scroll
+      // Yield wheel/ctrl+u/d to RemotePlanChoiceDialog's own scroll
       // handler while the modal is showing.
-      isActive={focusedInputDialog !== 'ultraplan-choice'}
+      isActive={focusedInputDialog !== 'remote-plan-choice'}
       // g/G/j/k/ctrl+u/ctrl+d would eat keystrokes the search bar
       // wants. Off while searching.
       isModal={!searchOpen}
@@ -4753,12 +4753,12 @@ export function REPL({
               ...current,
               hasAcknowledgedCostThreshold: true
             }));
-            logEvent('tengu_cost_threshold_acknowledged', {});
+            logEvent('internal_cost_threshold_acknowledged', {});
           }} />}
                 {focusedInputDialog === 'idle-return' && idleReturnPending && <IdleReturnDialog idleMinutes={idleReturnPending.idleMinutes} totalInputTokens={getTotalInputTokens()} onDone={async action => {
             const pending = idleReturnPending;
             setIdleReturnPending(null);
-            logEvent('tengu_idle_return_action', {
+            logEvent('internal_idle_return_action', {
               action: action as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
               idleMinutes: Math.round(pending.idleMinutes),
               messageCount: messagesRef.current.length,
@@ -4813,7 +4813,7 @@ export function REPL({
               }));
             }
           }} />}
-                {"external" === 'ant' && focusedInputDialog === 'undercover-callout' && UndercoverAutoCallout && <UndercoverAutoCallout onDone={() => setShowUndercoverCallout(false)} />}
+                {"external" === 'ant' && focusedInputDialog === 'public-repo-mode-notice' && PublicRepoModeNotice && <PublicRepoModeNotice onDone={() => setShowPublicRepoModeNotice(false)} />}
                 {focusedInputDialog === 'effort-callout' && <EffortCallout model={mainLoopModel} onDone={selection => {
             setShowEffortCallout(false);
             if (selection !== 'dismiss') {
@@ -4846,19 +4846,19 @@ export function REPL({
 
                 {focusedInputDialog === 'desktop-upsell' && <DesktopUpsellStartup onDone={() => setShowDesktopUpsellStartup(false)} />}
 
-                {feature('ULTRAPLAN') ? focusedInputDialog === 'ultraplan-choice' && ultraplanPendingChoice && <UltraplanChoiceDialog plan={ultraplanPendingChoice.plan} sessionId={ultraplanPendingChoice.sessionId} taskId={ultraplanPendingChoice.taskId} setMessages={setMessages} readFileState={readFileState.current} getAppState={() => store.getState()} setConversationId={setConversationId} /> : null}
+                {feature('REMOTE_PARALLEL_MODE') ? focusedInputDialog === 'remote-plan-choice' && remotePlanPendingChoice && <RemotePlanChoiceDialog plan={remotePlanPendingChoice.plan} sessionId={remotePlanPendingChoice.sessionId} taskId={remotePlanPendingChoice.taskId} setMessages={setMessages} readFileState={readFileState.current} getAppState={() => store.getState()} setConversationId={setConversationId} /> : null}
 
-                {feature('ULTRAPLAN') ? focusedInputDialog === 'ultraplan-launch' && ultraplanLaunchPending && <UltraplanLaunchDialog onChoice={(choice, opts) => {
-            const blurb = ultraplanLaunchPending.blurb;
-            setAppState(prev => prev.ultraplanLaunchPending ? {
+                {feature('REMOTE_PARALLEL_MODE') ? focusedInputDialog === 'remote-plan-launch' && remotePlanLaunchPending && <RemotePlanLaunchDialog onChoice={(choice, opts) => {
+            const blurb = remotePlanLaunchPending.blurb;
+            setAppState(prev => prev.remotePlanLaunchPending ? {
               ...prev,
-              ultraplanLaunchPending: undefined
+              remotePlanLaunchPending: undefined
             } : prev);
             if (choice === 'cancel') return;
             // Command's onDone used display:'skip', so add the
             // echo here — gives immediate feedback before the
             // ~5s teleportToRemote resolves.
-            setMessages(prev => [...prev, createCommandInputMessage(formatCommandInputTags('ultraplan', blurb))]);
+            setMessages(prev => [...prev, createCommandInputMessage(formatCommandInputTags('remote-parallel-plan', blurb))]);
             const appendStdout = (msg: string) => setMessages(prev => [...prev, createCommandInputMessage(`<${LOCAL_COMMAND_STDOUT_TAG}>${escapeXml(msg)}</${LOCAL_COMMAND_STDOUT_TAG}>`)]);
             // Defer the second message if a query is mid-turn
             // so it lands after the assistant reply, not
@@ -4871,14 +4871,14 @@ export function REPL({
               const unsub = queryGuard.subscribe(() => {
                 if (queryGuard.isActive) return;
                 unsub();
-                // Skip if the user stopped ultraplan while we
+                // Skip if the user stopped remote-parallel-plan while we
                 // were waiting — avoids a stale "Monitoring
                 // <url>" message for a session that's gone.
-                if (!store.getState().ultraplanSessionUrl) return;
+                if (!store.getState().remotePlanSessionUrl) return;
                 appendStdout(msg);
               });
             };
-            void launchUltraplan({
+            void launchRemotePlan({
               blurb,
               getAppState: () => store.getState(),
               setAppState,
@@ -4895,7 +4895,7 @@ export function REPL({
                       {postCompactSurvey.state !== 'closed' ? <FeedbackSurvey state={postCompactSurvey.state} lastResponse={postCompactSurvey.lastResponse} handleSelect={postCompactSurvey.handleSelect} inputValue={inputValue} setInputValue={setInputValue} onRequestFeedback={handleSurveyRequestFeedback} /> : memorySurvey.state !== 'closed' ? <FeedbackSurvey state={memorySurvey.state} lastResponse={memorySurvey.lastResponse} handleSelect={memorySurvey.handleSelect} handleTranscriptSelect={memorySurvey.handleTranscriptSelect} inputValue={inputValue} setInputValue={setInputValue} onRequestFeedback={handleSurveyRequestFeedback} message="How well did Claude use its memory? (optional)" /> : <FeedbackSurvey state={feedbackSurvey.state} lastResponse={feedbackSurvey.lastResponse} handleSelect={feedbackSurvey.handleSelect} handleTranscriptSelect={feedbackSurvey.handleTranscriptSelect} inputValue={inputValue} setInputValue={setInputValue} onRequestFeedback={didAutoRunIssueRef.current ? undefined : handleSurveyRequestFeedback} />}
                       {/* Frustration-triggered transcript sharing prompt */}
                       {frustrationDetection.state !== 'closed' && <FeedbackSurvey state={frustrationDetection.state} lastResponse={null} handleSelect={() => {}} handleTranscriptSelect={frustrationDetection.handleTranscriptSelect} inputValue={inputValue} setInputValue={setInputValue} />}
-                      {/* Skill improvement survey - appears when improvements detected (ant-only) */}
+                      {/* Skill improvement survey - appears when improvements detected (internal-only) */}
                       {"external" === 'ant' && skillImprovementSurvey.suggestion && <SkillImprovementSurvey isOpen={skillImprovementSurvey.isOpen} skillName={skillImprovementSurvey.suggestion.skillName} updates={skillImprovementSurvey.suggestion.updates} handleSelect={skillImprovementSurvey.handleSelect} inputValue={inputValue} setInputValue={setInputValue} />}
                       {showIssueFlagBanner && <IssueFlagBanner />}
                       {}
@@ -4963,9 +4963,9 @@ export function REPL({
               setMessages(postCompact);
             }
             // Partial compact bypasses handleMessageFromStream — clear
-            // the context-blocked flag so proactive ticks resume.
-            if (feature('PROACTIVE') || feature('KAIROS')) {
-              proactiveModule?.setContextBlocked(false);
+            // the context-blocked flag so brief mode ticks resume.
+            if (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) {
+              briefModeModule?.setContextBlocked(false);
             }
             setConversationId(randomUUID());
             runPostCompactCleanup(context.options.querySource);

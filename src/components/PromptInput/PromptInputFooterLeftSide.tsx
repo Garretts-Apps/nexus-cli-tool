@@ -44,7 +44,7 @@ import { PrBadge } from '../PrBadge.js';
 
 // Dead code elimination: conditional import for proactive mode
 /* eslint-disable @typescript-eslint/no-require-imports */
-const proactiveModule = feature('PROACTIVE') || feature('KAIROS') ? require('../../proactive/index.js') : null;
+const briefModeModule = feature('BRIEF_MODE') || feature('ASSISTANT_MODE') ? require('../../proactive/index.js') : null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 const NO_OP_SUBSCRIBE = (_cb: () => void) => () => {};
 const NULL = () => null;
@@ -73,7 +73,7 @@ type Props = {
 };
 function ProactiveCountdown() {
   const $ = _c(7);
-  const nextTickAt = useSyncExternalStore(proactiveModule?.subscribeToProactiveChanges ?? NO_OP_SUBSCRIBE, proactiveModule?.getNextTickAt ?? NULL, NULL);
+  const nextTickAt = useSyncExternalStore(briefModeModule?.subscribeToProactiveChanges ?? NO_OP_SUBSCRIBE, briefModeModule?.getNextTickAt ?? NULL, NULL);
   const [remainingSeconds, setRemainingSeconds] = useState(null);
   let t0;
   let t1;
@@ -261,7 +261,7 @@ function ModeIndicator({
   const showSpinnerTree = expandedView === 'teammates';
   const prStatus = usePrStatus(isLoading, isPrStatusEnabled());
   const hasTmuxSession = useAppState(s_4 => "external" === 'ant' && s_4.tungstenActiveSession !== undefined);
-  const nextTickAt = useSyncExternalStore(proactiveModule?.subscribeToProactiveChanges ?? NO_OP_SUBSCRIBE, proactiveModule?.getNextTickAt ?? NULL, NULL);
+  const nextTickAt = useSyncExternalStore(briefModeModule?.subscribeToProactiveChanges ?? NO_OP_SUBSCRIBE, briefModeModule?.getNextTickAt ?? NULL, NULL);
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   const voiceEnabled = feature('VOICE_MODE') ? useVoiceEnabled() : false;
   const voiceState = feature('VOICE_MODE') ?
@@ -343,7 +343,7 @@ function ModeIndicator({
 
   // In remote mode (`claude assistant`, --teleport) the agent runs elsewhere;
   // the local permission mode shown here doesn't reflect the agent's state.
-  // Rendered before the tasks pill so a long pill label (e.g. ultraplan URL)
+  // Rendered before the tasks pill so a long pill label (e.g. remote-parallel-plan URL)
   // doesn't push the mode indicator off-screen.
   const modePart = currentMode && hasActiveMode && !getIsRemoteMode() ? <Text color={getModeColor(currentMode)} key="mode">
         {permissionModeSymbol(currentMode)}{' '}
@@ -364,7 +364,7 @@ function ModeIndicator({
   // BackgroundTaskStatus is NOT in parts — it renders as a Box sibling so
   // its click-target Box isn't nested inside the <Text wrap="truncate">
   // wrapper (reconciler throws on Box-in-Text).
-  // Tmux pill (ant-only) — appears right after tasks in nav order
+  // Tmux pill (internal-only) — appears right after tasks in nav order
   ...("external" === 'ant' && hasTmuxSession ? [<TungstenPill key="tmux" selected={tmuxSelected} />] : []), ...(isAgentSwarmsEnabled() && hasTeams ? [<TeamStatus key="teams" teamsSelected={teamsSelected} showHint={showHint && !hasBackgroundTasks} />] : []), ...(shouldShowPrStatus ? [<PrBadge key="pr-status" number={prStatus.number!} url={prStatus.url!} reviewState={prStatus.reviewState!} />] : [])];
 
   // Check if any in-process teammates exist (for hint text cycling)
@@ -377,7 +377,7 @@ function ModeIndicator({
     parts.push(<Text dimColor key="esc-return">
         <KeyboardShortcutHint shortcut={escShortcut} action="return to team lead" />
       </Text>);
-  } else if ((feature('PROACTIVE') || feature('KAIROS')) && hasNextTick) {
+  } else if ((feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) && hasNextTick) {
     parts.push(<ProactiveCountdown key="proactive" />);
   } else if (!hasTeammatePills && showHint) {
     parts.push(...hintParts);

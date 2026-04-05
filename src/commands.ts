@@ -46,7 +46,7 @@ import tasks from './commands/tasks/index.js'
 import teleport from './commands/teleport/index.js'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const agentsPlatform =
-  process.env.USER_TYPE === 'ant'
+  process.env.INTERNAL_BUILD === '1'
     ? require('./commands/agents-platform/index.js').default
     : null
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -60,14 +60,14 @@ import { feature } from 'bun:bundle'
 // Dead code elimination: conditional imports
 /* eslint-disable @typescript-eslint/no-require-imports */
 const proactive =
-  feature('PROACTIVE') || feature('KAIROS')
+  feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? require('./commands/proactive.js').default
     : null
 const briefCommand =
-  feature('KAIROS') || feature('KAIROS_BRIEF')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
     ? require('./commands/brief.js').default
     : null
-const assistantCommand = feature('KAIROS')
+const assistantCommand = feature('ASSISTANT_MODE')
   ? require('./commands/assistant/index.js').default
   : null
 const bridge = feature('BRIDGE_MODE')
@@ -98,11 +98,11 @@ const clearSkillIndexCache = feature('EXPERIMENTAL_SKILL_SEARCH')
       require('./services/skillSearch/localSearch.js') as typeof import('./services/skillSearch/localSearch.js')
     ).clearSkillIndexCache
   : null
-const subscribePr = feature('KAIROS_GITHUB_WEBHOOKS')
+const subscribePr = feature('ASSISTANT_MODE_GITHUB_WEBHOOKS')
   ? require('./commands/subscribe-pr.js').default
   : null
-const ultraplan = feature('ULTRAPLAN')
-  ? require('./commands/ultraplan.js').default
+const remotePlan = feature('REMOTE_PARALLEL_MODE')
+  ? require('./commands/remote-parallel-plan.js').default
   : null
 const torch = feature('TORCH') ? require('./commands/torch.js').default : null
 const peersCmd = feature('UDS_INBOX')
@@ -236,7 +236,7 @@ export const INTERNAL_ONLY_COMMANDS = [
   mockLimits,
   bridgeKick,
   version,
-  ...(ultraplan ? [ultraplan] : []),
+  ...(remotePlan ? [remotePlan] : []),
   ...(subscribePr ? [subscribePr] : []),
   resetLimits,
   resetLimitsNonInteractive,
@@ -340,7 +340,7 @@ const COMMANDS = memoize((): Command[] => [
   tasks,
   ...(workflowsCmd ? [workflowsCmd] : []),
   ...(torch ? [torch] : []),
-  ...(process.env.USER_TYPE === 'ant' && !process.env.IS_DEMO
+  ...(process.env.INTERNAL_BUILD === '1' && !process.env.IS_DEMO
     ? INTERNAL_ONLY_COMMANDS
     : []),
 ])

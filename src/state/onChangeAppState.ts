@@ -34,8 +34,8 @@ export function externalMetadataToAppState(
           },
         }
       : {}),
-    ...(typeof metadata.is_ultraplan_mode === 'boolean'
-      ? { isUltraplanMode: metadata.is_ultraplan_mode }
+    ...(typeof metadata.is_remote_plan_mode === 'boolean'
+      ? { isRemotePlanMode: metadata.is_remote_plan_mode }
       : {}),
   })
 }
@@ -75,17 +75,17 @@ export function onChangeAppState({
     const newExternal = toExternalPermissionMode(newMode)
     if (prevExternal !== newExternal) {
       // Ultraplan = first plan cycle only. The initial control_request
-      // sets mode and isUltraplanMode atomically, so the flag's
+      // sets mode and isRemotePlanMode atomically, so the flag's
       // transition gates it. null per RFC 7396 (removes the key).
       const isUltraplan =
         newExternal === 'plan' &&
-        newState.isUltraplanMode &&
-        !oldState.isUltraplanMode
+        newState.isRemotePlanMode &&
+        !oldState.isRemotePlanMode
           ? true
           : null
       notifySessionMetadataChanged({
         permission_mode: newExternal,
-        is_ultraplan_mode: isUltraplan,
+        is_remote_plan_mode: isUltraplan,
       })
     }
     notifyPermissionModeChanged(newMode)
@@ -132,8 +132,8 @@ export function onChangeAppState({
     }))
   }
 
-  // tungstenPanelVisible (ant-only tmux panel sticky toggle)
-  if (process.env.USER_TYPE === 'ant') {
+  // tungstenPanelVisible (internal-only tmux panel sticky toggle)
+  if (process.env.INTERNAL_BUILD === '1') {
     if (
       newState.tungstenPanelVisible !== oldState.tungstenPanelVisible &&
       newState.tungstenPanelVisible !== undefined &&

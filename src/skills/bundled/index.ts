@@ -32,11 +32,11 @@ export function initBundledSkills(): void {
   registerSimplifySkill()
   registerBatchSkill()
   registerStuckSkill()
-  if (feature('KAIROS') || feature('KAIROS_DREAM')) {
+  if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_DREAM')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
-    const { registerDreamSkill } = require('./dream.js')
+    const { registerAutoSummarizeSkill } = require('./dream.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
-    registerDreamSkill()
+    registerAutoSummarizeSkill()
   }
   if (feature('REVIEW_ARTIFACT')) {
     /* eslint-disable @typescript-eslint/no-require-imports */
@@ -48,7 +48,7 @@ export function initBundledSkills(): void {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerLoopSkill } = require('./loop.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
-    // /loop's isEnabled delegates to isKairosCronEnabled() — same lazy
+    // /loop's isEnabled delegates to isAssistantModeCronEnabled() — same lazy
     // per-invocation pattern as the cron tools. Registered unconditionally;
     // the skill's own isEnabled callback decides visibility.
     registerLoopSkill()

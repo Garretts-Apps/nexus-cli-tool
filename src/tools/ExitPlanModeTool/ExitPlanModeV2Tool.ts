@@ -169,7 +169,7 @@ export const ExitPlanModeV2Tool: Tool<InputSchema, Output> = buildTool({
     // watching the TUI. The plan-approval dialog would hang. Paired with the
     // same gate on EnterPlanMode so plan mode isn't a trap.
     if (
-      (feature('KAIROS') || feature('KAIROS_CHANNELS')) &&
+      (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) &&
       getAllowedChannels().length > 0
     ) {
       return false
@@ -471,7 +471,7 @@ Request ID: ${requestId}`,
       ? `\n\nIf this plan can be broken down into multiple independent tasks, consider using the ${TEAM_CREATE_TOOL_NAME} tool to create a team and parallelize the work.`
       : ''
 
-    // Always include the plan — extractApprovedPlan() in the Ultraplan CCR
+    // Always include the plan — extractApprovedPlan() in the remote-parallel-plan CCR
     // flow parses the tool_result to retrieve the plan text for the local CLI.
     // Label edited plans so the model knows the user changed something.
     const planLabel = planWasEdited

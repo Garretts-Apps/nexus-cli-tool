@@ -41,7 +41,7 @@ export function createMovedToPluginCommand({
       args: string,
       context: ToolUseContext,
     ): Promise<ContentBlockParam[]> {
-      if (process.env.USER_TYPE === 'ant') {
+      if (process.env.INTERNAL_BUILD === '1') {
         return [
           {
             type: 'text',

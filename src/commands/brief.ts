@@ -1,6 +1,6 @@
 import { feature } from 'bun:bundle'
 import { z } from 'zod/v4'
-import { getKairosActive, setUserMsgOptIn } from '../state/sessionConfig.js'
+import { getAssistantModeActive, setUserMsgOptIn } from '../state/sessionConfig.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -33,11 +33,11 @@ const DEFAULT_BRIEF_CONFIG: BriefConfig = {
 // No TTL — this gate controls slash-command *visibility*, not a kill switch.
 // CACHED_MAY_BE_STALE still has one background-update flip (first call kicks
 // off fetch; second call sees fresh value), but no additional flips after that.
-// The tool-availability gate (tengu_kairos_brief in isBriefEnabled) keeps its
+// The tool-availability gate (internal_assistant_brief in isBriefEnabled) keeps its
 // 5-min TTL because that one IS a kill switch.
 function getBriefConfig(): BriefConfig {
   const raw = getFeatureValue_CACHED_MAY_BE_STALE<unknown>(
-    'tengu_kairos_brief_config',
+    'internal_assistant_brief_config',
     DEFAULT_BRIEF_CONFIG,
   )
   const parsed = briefConfigSchema().safeParse(raw)
@@ -49,7 +49,7 @@ const brief = {
   name: 'brief',
   description: 'Toggle brief-only mode',
   isEnabled: () => {
-    if (feature('KAIROS') || feature('KAIROS_BRIEF')) {
+    if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) {
       return getBriefConfig().enable_slash_command
     }
     return false
@@ -102,13 +102,13 @@ const brief = {
         // (model may keep emitting plain text from inertia, or keep calling a
         // tool that just vanished). Inject an explicit reminder into the next
         // turn's context so the transition is unambiguous.
-        // Skip when Kairos is active: isBriefEnabled() short-circuits on
-        // getKairosActive() so the tool never actually leaves the list, and
-        // the Kairos system prompt already mandates SendUserMessage.
+        // Skip when assistantMode is active: isBriefEnabled() short-circuits on
+        // getAssistantModeActive() so the tool never actually leaves the list, and
+        // the assistantMode system prompt already mandates SendUserMessage.
         // Inline <system-reminder> wrap — importing wrapInSystemReminder from
         // utils/messages.ts pulls constants/xml.ts into the bridge SDK bundle
         // via this module's import chain, tripping the excluded-strings check.
-        const metaMessages = getKairosActive()
+        const metaMessages = getAssistantModeActive()
           ? undefined
           : [
               `<system-reminder>\n${

@@ -14,9 +14,9 @@
  *   - There is NO force-OFF. This guards against information leaks — if
  *     we're not confident we're in an internal repo, we stay in public mode.
  *
- * All code paths are gated on process.env.USER_TYPE === 'ant'. Since USER_TYPE is
+ * All code paths are gated on process.env.INTERNAL_BUILD === '1'. Since USER_TYPE is
  * a build-time --define, the bundler constant-folds these checks and dead-code-
- * eliminates the ant-only branches from external builds. In external builds every
+ * eliminates the internal-only branches from external builds. In external builds every
  * function in this file reduces to a trivial return.
  */
 
@@ -25,7 +25,7 @@ import { getGlobalConfig } from './config.js'
 import { isEnvTruthy } from './envUtils.js'
 
 export function isPublicRepoMode(): boolean {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     if (isEnvTruthy(process.env.PUBLIC_REPO_MODE)) return true
     // Auto: active unless we've positively confirmed we're in an allowlisted
     // internal repo. 'external', 'none', and null (check not yet run) all
@@ -36,7 +36,7 @@ export function isPublicRepoMode(): boolean {
 }
 
 export function getPublicRepoModeInstructions(): string {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     return `## PUBLIC REPOSITORY MODE — CRITICAL
 
 You are operating in PUBLIC/OPEN-SOURCE repository mode. Your commit
@@ -76,7 +76,7 @@ BAD (never write these):
  * flag on mount.
  */
 export function shouldShowPublicRepoModeNotice(): boolean {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     // If forced via env, user already knows; don't nag.
     if (isEnvTruthy(process.env.PUBLIC_REPO_MODE)) return false
     if (!isPublicRepoMode()) return false

@@ -232,7 +232,7 @@ function generateLoremIpsum(targetTokens: number): string {
 }
 
 export function registerLoremIpsumSkill(): void {
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return
   }
 

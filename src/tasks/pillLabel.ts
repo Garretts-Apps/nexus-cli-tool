@@ -41,13 +41,13 @@ export function getPillLabel(tasks: BackgroundTaskState[]): string {
         // Per design mockup: ◇ open diamond while running/needs-input,
         // ◆ filled once ExitPlanMode is awaiting approval.
         if (n === 1 && first.type === 'remote_agent' && first.isUltraplan) {
-          switch (first.ultraplanPhase) {
+          switch (first.remotePlanPhase) {
             case 'plan_ready':
-              return `${DIAMOND_FILLED} ultraplan ready`
+              return `${DIAMOND_FILLED} remote-parallel-plan ready`
             case 'needs_input':
-              return `${DIAMOND_OPEN} ultraplan needs your input`
+              return `${DIAMOND_OPEN} remote-parallel-plan needs your input`
             default:
-              return `${DIAMOND_OPEN} ultraplan`
+              return `${DIAMOND_OPEN} remote-parallel-plan`
           }
         }
         return n === 1
@@ -77,6 +77,6 @@ export function pillNeedsCta(tasks: BackgroundTaskState[]): boolean {
   return (
     t.type === 'remote_agent' &&
     t.isUltraplan === true &&
-    t.ultraplanPhase !== undefined
+    t.remotePlanPhase !== undefined
   )
 }

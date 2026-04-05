@@ -294,7 +294,7 @@ export async function update() {
     process.stderr.write('  • Run with --debug flag for more details\n')
     const packageName =
       MACRO.PACKAGE_URL ||
-      (process.env.USER_TYPE === 'ant'
+      (process.env.INTERNAL_BUILD === '1'
         ? '@anthropic-ai/claude-cli'
         : '@anthropic-ai/claude-code')
     process.stderr.write(

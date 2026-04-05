@@ -199,11 +199,11 @@ function formatContextAsMarkdownTable(data: ContextData): string {
     output += `\n`
   }
 
-  // System tools (ant-only)
+  // System tools (internal-only)
   if (
     systemTools &&
     systemTools.length > 0 &&
-    process.env.USER_TYPE === 'ant'
+    process.env.INTERNAL_BUILD === '1'
   ) {
     output += `### [ANT-ONLY] System Tools\n\n`
     output += `| Tool | Tokens |\n`
@@ -214,11 +214,11 @@ function formatContextAsMarkdownTable(data: ContextData): string {
     output += `\n`
   }
 
-  // System prompt sections (ant-only)
+  // System prompt sections (internal-only)
   if (
     systemPromptSections &&
     systemPromptSections.length > 0 &&
-    process.env.USER_TYPE === 'ant'
+    process.env.INTERNAL_BUILD === '1'
   ) {
     output += `### [ANT-ONLY] System Prompt Sections\n\n`
     output += `| Section | Tokens |\n`
@@ -288,8 +288,8 @@ function formatContextAsMarkdownTable(data: ContextData): string {
     output += `\n`
   }
 
-  // Message breakdown (ant-only)
-  if (messageBreakdown && process.env.USER_TYPE === 'ant') {
+  // Message breakdown (internal-only)
+  if (messageBreakdown && process.env.INTERNAL_BUILD === '1') {
     output += `### [ANT-ONLY] Message Breakdown\n\n`
     output += `| Category | Tokens |\n`
     output += `|----------|--------|\n`

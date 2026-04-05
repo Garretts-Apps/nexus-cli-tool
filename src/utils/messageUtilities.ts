@@ -470,7 +470,7 @@ export function shouldShowUserMessage(
     // should see what arrived. The <channel> tag in UserTextMessage handles
     // the actual rendering.
     if (
-      (feature('KAIROS') || feature('KAIROS_CHANNELS')) &&
+      (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) &&
       message.origin?.kind === 'channel'
     )
       return true

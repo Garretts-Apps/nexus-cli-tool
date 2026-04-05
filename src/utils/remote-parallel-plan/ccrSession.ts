@@ -1,4 +1,4 @@
-// CCR session polling for /ultraplan. Waits for an approved ExitPlanMode
+// CCR session polling for /remote-parallel-plan. Waits for an approved ExitPlanMode
 // tool_result, then extracts the plan text. Uses pollRemoteSessionEvents
 // (shared with RemoteAgentTask) for pagination + typed SDKMessage[].
 // Plan mode is set via set_permission_mode control_request in
@@ -31,7 +31,7 @@ export type PollFailReason =
   | 'network_or_unknown'
   | 'stopped'
 
-export class UltraplanPollError extends Error {
+export class RemotePlanPollError extends Error {
   constructor(
     message: string,
     readonly reason: PollFailReason,
@@ -39,7 +39,7 @@ export class UltraplanPollError extends Error {
     options?: ErrorOptions,
   ) {
     super(message, options)
-    this.name = 'UltraplanPollError'
+    this.name = 'RemotePlanPollError'
   }
 }
 
@@ -63,7 +63,7 @@ export type ScanResult =
  *   plan_ready → (rejected) → running
  *   plan_ready → (approved) → poll resolves, pill removed
  */
-export type UltraplanPhase = 'running' | 'needs_input' | 'plan_ready'
+export type RemotePlanPhase = 'running' | 'needs_input' | 'plan_ready'
 
 /**
  * Pure stateful classifier for the CCR event stream. Ingests SDKMessage[]
@@ -191,25 +191,25 @@ export type PollResult = {
 // 'approved' scrapes from the "## Approved Plan:" marker (ExitPlanModeV2Tool
 // default branch) — the model writes plan to a file inside CCR and calls
 // ExitPlanMode({allowedPrompts}), so input.plan is never in threadstore.
-// 'teleport' scrapes from the ULTRAPLAN_TELEPORT_SENTINEL in a deny tool_result —
+// 'teleport' scrapes from the REMOTE_PLAN_TELEPORT_SENTINEL in a deny tool_result —
 // browser sends a rejection so the remote stays in plan mode, with the plan
 // text embedded in the feedback. Normal rejections (is_error === true, no
 // sentinel) are tracked and skipped so the user can iterate in the browser.
 export async function pollForApprovedExitPlanMode(
   sessionId: string,
   timeoutMs: number,
-  onPhaseChange?: (phase: UltraplanPhase) => void,
+  onPhaseChange?: (phase: RemotePlanPhase) => void,
   shouldStop?: () => boolean,
 ): Promise<PollResult> {
   const deadline = Date.now() + timeoutMs
   const scanner = new ExitPlanModeScanner()
   let cursor: string | null = null
   let failures = 0
-  let lastPhase: UltraplanPhase = 'running'
+  let lastPhase: RemotePlanPhase = 'running'
 
   while (Date.now() < deadline) {
     if (shouldStop?.()) {
-      throw new UltraplanPollError(
+      throw new RemotePlanPollError(
         'poll stopped by caller',
         'stopped',
         scanner.rejectCount,
@@ -229,7 +229,7 @@ export async function pollForApprovedExitPlanMode(
     } catch (e) {
       const transient = isTransientNetworkError(e)
       if (!transient || ++failures >= MAX_CONSECUTIVE_FAILURES) {
-        throw new UltraplanPollError(
+        throw new RemotePlanPollError(
           e instanceof Error ? e.message : String(e),
           'network_or_unknown',
           scanner.rejectCount,
@@ -244,7 +244,7 @@ export async function pollForApprovedExitPlanMode(
     try {
       result = scanner.ingest(newEvents)
     } catch (e) {
-      throw new UltraplanPollError(
+      throw new RemotePlanPollError(
         e instanceof Error ? e.message : String(e),
         'extract_marker_missing',
         scanner.rejectCount,
@@ -265,7 +265,7 @@ export async function pollForApprovedExitPlanMode(
       }
     }
     if (result.kind === 'terminated') {
-      throw new UltraplanPollError(
+      throw new RemotePlanPollError(
         `remote session ended (${result.subtype}) before plan approval`,
         'terminated',
         scanner.rejectCount,
@@ -283,20 +283,20 @@ export async function pollForApprovedExitPlanMode(
     const quietIdle =
       (sessionStatus === 'idle' || sessionStatus === 'requires_action') &&
       newEvents.length === 0
-    const phase: UltraplanPhase = scanner.hasPendingPlan
+    const phase: RemotePlanPhase = scanner.hasPendingPlan
       ? 'plan_ready'
       : quietIdle
         ? 'needs_input'
         : 'running'
     if (phase !== lastPhase) {
-      logForDebugging(`[ultraplan] phase ${lastPhase} → ${phase}`)
+      logForDebugging(`[remote-parallel-plan] phase ${lastPhase} → ${phase}`)
       lastPhase = phase
       onPhaseChange?.(phase)
     }
     await sleep(POLL_INTERVAL_MS)
   }
 
-  throw new UltraplanPollError(
+  throw new RemotePlanPollError(
     scanner.everSeenPending
       ? `no approval after ${timeoutMs / 1000}s`
       : `ExitPlanMode never reached after ${timeoutMs / 1000}s (the remote container failed to start, or session ID mismatch?)`,
@@ -315,7 +315,7 @@ function contentToText(content: ToolResultBlockParam['content']): string {
       : ''
 }
 
-// Extracts the plan text after the ULTRAPLAN_TELEPORT_SENTINEL marker.
+// Extracts the plan text after the REMOTE_PLAN_TELEPORT_SENTINEL marker.
 // Returns null when the sentinel is absent — callers treat null as a normal
 // user rejection (scanner falls through to { kind: 'rejected' }).
 function extractTeleportPlan(

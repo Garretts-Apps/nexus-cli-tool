@@ -147,7 +147,7 @@ function getEmail(): string | undefined {
   }
 
   // Ant-only fallbacks below (no execSync)
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return undefined
   }
 
@@ -167,7 +167,7 @@ async function getEmailAsync(): Promise<string | undefined> {
   }
 
   // Ant-only fallbacks below
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return undefined
   }
 

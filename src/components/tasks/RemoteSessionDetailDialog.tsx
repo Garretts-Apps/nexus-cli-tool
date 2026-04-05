@@ -87,7 +87,7 @@ function UltraplanSessionDetail(t0) {
     onKill
   } = t0;
   const running = session.status === "running" || session.status === "pending";
-  const phase = session.ultraplanPhase;
+  const phase = session.remotePlanPhase;
   const statusText = running ? phase ? PHASE_LABEL[phase] : "running" : session.status;
   const elapsedTime = useElapsedTime(session.startTime, running, 1000, 0, session.endTime);
   let spawns = 0;
@@ -195,7 +195,7 @@ function UltraplanSessionDetail(t0) {
     }
     let t10;
     if ($[15] !== goBackOrClose || $[16] !== onKill) {
-      t10 = <Dialog title="Stop ultraplan?" onCancel={t6} color="background"><Box flexDirection="column" gap={1}>{t7}<Select options={t9} onChange={v => {
+      t10 = <Dialog title="Stop remote-parallel-plan?" onCancel={t6} color="background"><Box flexDirection="column" gap={1}>{t7}<Select options={t9} onChange={v => {
             if (v === "stop") {
               onKill?.();
               goBackOrClose();
@@ -222,7 +222,7 @@ function UltraplanSessionDetail(t0) {
   }
   let t8;
   if ($[20] === Symbol.for("react.memo_cache_sentinel")) {
-    t8 = <Text bold={true}>ultraplan</Text>;
+    t8 = <Text bold={true}>remote-parallel-plan</Text>;
     $[20] = t8;
   } else {
     t8 = $[20];
@@ -321,7 +321,7 @@ function UltraplanSessionDetail(t0) {
   let t20;
   if ($[48] !== onKill || $[49] !== running) {
     t20 = onKill && running ? [{
-      label: "Stop ultraplan",
+      label: "Stop remote-parallel-plan",
       value: "stop" as const
     }] : [];
     $[48] = onKill;

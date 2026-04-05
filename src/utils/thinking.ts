@@ -92,7 +92,7 @@ export function modelSupportsThinking(model: string): boolean {
   if (supported3P !== undefined) {
     return supported3P
   }
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     if (resolveAntModel(model.toLowerCase())) {
       return true
     }

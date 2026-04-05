@@ -37,7 +37,7 @@ export function isAutoMemoryEnabled(): boolean {
   }
   // --bare / SIMPLE: prompts.ts already drops the memory section from the
   // system prompt via its SIMPLE early-return; this gate stops the other half
-  // (extractMemories turn-end fork, autoDream, /remember, /dream, team sync).
+  // (extractMemories turn-end fork, autoSummarize, /remember, /auto-summarize, team sync).
   if (isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)) {
     return false
   }
@@ -238,9 +238,9 @@ export const getAutoMemPath = memoize(
  * Returns the daily log file path for the given date (defaults to today).
  * Shape: <autoMemPath>/logs/YYYY/MM/YYYY-MM-DD.md
  *
- * Used by assistant mode (feature('KAIROS')): rather than maintaining
+ * Used by assistant mode (feature('ASSISTANT_MODE')): rather than maintaining
  * MEMORY.md as a live index, the agent appends to a date-named log file
- * as it works. A separate nightly /dream skill distills these logs into
+ * as it works. A separate nightly /auto-summarize skill distills these logs into
  * topic files + MEMORY.md.
  */
 export function getAutoMemDailyLogPath(date: Date = new Date()): string {

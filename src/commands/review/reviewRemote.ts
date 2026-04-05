@@ -2,7 +2,7 @@
  * Teleported /ultrareview execution. Creates a CCR session with the current repo,
  * sends the review prompt as the initial message, and registers a
  * RemoteAgentTask so the polling loop pipes results back into the local
- * session via task-notification. Mirrors the /ultraplan → CCR flow.
+ * session via task-notification. Mirrors the /remote-parallel-plan → CCR flow.
  *
  * TODO(#22051): pass useBundleMode once landed so local-only / uncommitted
  * repo state is captured. The GitHub-clone path (current) only works for
@@ -173,7 +173,7 @@ export async function launchRemoteReview(
   //
   // total_wallclock must stay below RemoteAgentTask's 30min poll timeout
   // with headroom for finalization (~3min synthesis). Per-field guards
-  // match autoDream.ts — GB cache can return stale wrong-type values.
+  // match autoSummarize.ts — GB cache can return stale wrong-type values.
   const raw = getFeatureValue_CACHED_MAY_BE_STALE<Record<
     string,
     unknown

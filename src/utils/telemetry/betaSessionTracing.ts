@@ -87,7 +87,7 @@ export function isBetaTracingEnabled(): boolean {
   // For external users, enable in SDK/headless mode OR when org is allowlisted.
   // Gate reads from disk cache, so first run after allowlisting returns false;
   // works from second run onward (same behavior as enhanced_telemetry_beta).
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return (
       getIsNonInteractiveSession() ||
       getFeatureValue_CACHED_MAY_BE_STALE('tengu_trace_lantern', false)
@@ -426,9 +426,9 @@ export function addBetaLLMResponseAttributes(
     }
   }
 
-  // Add thinking_output - ant-only
+  // Add thinking_output - internal-only
   if (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     metadata.thinkingOutput !== undefined
   ) {
     const { content: thinkingOutput, truncated: thinkingTruncated } =

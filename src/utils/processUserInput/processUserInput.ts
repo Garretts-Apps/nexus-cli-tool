@@ -55,9 +55,9 @@ import {
 import { queryCheckpoint } from '../queryProfiler.js'
 import { parseSlashCommand } from '../slashCommandParsing.js'
 import {
-  hasUltraplanKeyword,
-  replaceUltraplanKeyword,
-} from '../ultraplan/keyword.js'
+  hasRemotePlanKeyword,
+  replaceRemotePlanKeyword,
+} from '../remote-parallel-plan/keyword.js'
 import { processTextPrompt } from './processTextPrompt.js'
 export type ProcessUserInputContext = ToolUseContext & LocalJSXCommandContext
 
@@ -103,7 +103,7 @@ export async function processUserInput({
 }: {
   input: string | Array<ContentBlockParam>
   /**
-   * Input before [Pasted text #N] expansion. Used for ultraplan keyword
+   * Input before [Pasted text #N] expansion. Used for remote-parallel-plan keyword
    * detection so pasted content containing the word cannot trigger. Falls
    * back to the string `input` when unset.
    */
@@ -452,34 +452,34 @@ async function processUserInputBase(
     // pre-#19134. A mobile user typing "/shrug" shouldn't see "Unknown skill".
   }
 
-  // Ultraplan keyword — route through /ultraplan. Detect on the
+  // Remote plan keyword — route through /remote-parallel-plan. Detect on the
   // pre-expansion input so pasted content containing the word cannot
   // trigger a CCR session; replace with "plan" in the expanded input so
   // the CCR prompt receives paste contents and stays grammatical. See
   // keyword.ts for the quote/path exclusions. Interactive prompt mode +
   // non-slash-prefixed only:
   // headless/print mode filters local-jsx commands out of context.options,
-  // so routing to /ultraplan there yields "Unknown skill" — and there's no
+  // so routing to /remote-parallel-plan there yields "Unknown skill" — and there's no
   // rainbow animation in print mode anyway.
   // Runs before attachment extraction so this path matches the slash-command
   // path below (no await between setUserInputOnProcessing and setAppState —
   // React batches both into one render, no flash).
   if (
-    feature('ULTRAPLAN') &&
+    feature('REMOTE_PARALLEL_MODE') &&
     mode === 'prompt' &&
     !context.options.isNonInteractiveSession &&
     inputString !== null &&
     !effectiveSkipSlash &&
     !inputString.startsWith('/') &&
-    !context.getAppState().ultraplanSessionUrl &&
-    !context.getAppState().ultraplanLaunching &&
-    hasUltraplanKeyword(preExpansionInput ?? inputString)
+    !context.getAppState().remotePlanSessionUrl &&
+    !context.getAppState().remotePlanLaunchPending &&
+    hasRemotePlanKeyword(preExpansionInput ?? inputString)
   ) {
-    logEvent('tengu_ultraplan_keyword', {})
-    const rewritten = replaceUltraplanKeyword(inputString).trim()
+    logEvent('internal_remote_plan_keyword', {})
+    const rewritten = replaceRemotePlanKeyword(inputString).trim()
     const { processSlashCommand } = await import('./processSlashCommand.js')
     const slashResult = await processSlashCommand(
-      `/ultraplan ${rewritten}`,
+      `/remote-parallel-plan ${rewritten}`,
       precedingInputBlocks,
       imageContentBlocks,
       [],

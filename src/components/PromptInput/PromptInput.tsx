@@ -92,7 +92,7 @@ import type { TextHighlight } from '../../utils/textHighlighting.js';
 import type { Theme } from '../../utils/theme.js';
 import { findThinkingTriggerPositions, getRainbowColor, isUltrathinkEnabled } from '../../utils/thinking.js';
 import { findTokenBudgetPositions } from '../../utils/tokenBudget.js';
-import { findUltraplanTriggerPositions, findUltrareviewTriggerPositions } from '../../utils/ultraplan/keyword.js';
+import { findRemotePlanTriggerPositions, findUltrareviewTriggerPositions } from '../../utils/remote-parallel-plan/keyword.js';
 import { AutoModeOptInDialog } from '../AutoModeOptInDialog.js';
 import { BridgeDialog } from '../BridgeDialog.js';
 import { ConfigurableShortcutHint } from '../ConfigurableShortcutHint.js';
@@ -293,7 +293,7 @@ function PromptInput({
   // the pill returns null for implicit-and-not-reconnecting, so nav must too,
   // otherwise bridge becomes an invisible selection stop.
   const bridgeFooterVisible = replBridgeConnected && (replBridgeExplicit || replBridgeReconnecting);
-  // Tmux pill (ant-only) — visible when there's an active tungsten session
+  // Tmux pill (internal-only) — visible when there's an active tungsten session
   const hasTungstenSession = useAppState(s => "external" === 'ant' && s.tungstenActiveSession !== undefined);
   const tmuxFooterVisible = "external" === 'ant' && hasTungstenSession;
   // WebBrowser pill — visible when a browser is open
@@ -319,7 +319,7 @@ function PromptInput({
   // the input bar. viewingAgentTaskId mirrors the gate on both (Spinner.tsx,
   // REPL.tsx) — teammate view falls back to SpinnerWithVerbInner which has
   // its own marginTop, so the gap stays even without ours.
-  const briefOwnsGap = feature('KAIROS') || feature('KAIROS_BRIEF') ?
+  const briefOwnsGap = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useAppState(s => s.isBriefOnly) && !viewingAgentTaskId : false;
   const mainLoopModel_ = useAppState(s => s.mainLoopModel);
@@ -517,9 +517,9 @@ function PromptInput({
   });
   const displayedValue = useMemo(() => isSearchingHistory && historyMatch ? getValueFromInput(typeof historyMatch === 'string' ? historyMatch : historyMatch.display) : input, [isSearchingHistory, historyMatch, input]);
   const thinkTriggers = useMemo(() => findThinkingTriggerPositions(displayedValue), [displayedValue]);
-  const ultraplanSessionUrl = useAppState(s => s.ultraplanSessionUrl);
-  const ultraplanLaunching = useAppState(s => s.ultraplanLaunching);
-  const ultraplanTriggers = useMemo(() => feature('ULTRAPLAN') && !ultraplanSessionUrl && !ultraplanLaunching ? findUltraplanTriggerPositions(displayedValue) : [], [displayedValue, ultraplanSessionUrl, ultraplanLaunching]);
+  const remotePlanSessionUrl = useAppState(s => s.remotePlanSessionUrl);
+  const remotePlanLaunchPending = useAppState(s => s.remotePlanLaunchPending);
+  const remotePlanTriggers = useMemo(() => feature('REMOTE_PARALLEL_MODE') && !remotePlanSessionUrl && !remotePlanLaunchPending ? findRemotePlanTriggerPositions(displayedValue) : [], [displayedValue, remotePlanSessionUrl, remotePlanLaunchPending]);
   const ultrareviewTriggers = useMemo(() => isUltrareviewEnabled() ? findUltrareviewTriggerPositions(displayedValue) : [], [displayedValue]);
   const btwTriggers = useMemo(() => findBtwTriggerPositions(displayedValue), [displayedValue]);
   const buddyTriggers = useMemo(() => findBuddyTriggerPositions(displayedValue), [displayedValue]);
@@ -697,9 +697,9 @@ function PromptInput({
       }
     }
 
-    // Same rainbow treatment for the ultraplan keyword
-    if (feature('ULTRAPLAN')) {
-      for (const trigger of ultraplanTriggers) {
+    // Same rainbow treatment for the remote-parallel-plan keyword
+    if (feature('REMOTE_PARALLEL_MODE')) {
+      for (const trigger of remotePlanTriggers) {
         for (let i = trigger.start; i < trigger.end; i++) {
           highlights.push({
             start: i,
@@ -738,7 +738,7 @@ function PromptInput({
       }
     }
     return highlights;
-  }, [isSearchingHistory, historyQuery, historyMatch, historyFailedMatch, cursorOffset, btwTriggers, imageRefPositions, memberMentionHighlights, slashCommandTriggers, tokenBudgetTriggers, slackChannelTriggers, displayedValue, voiceInterimRange, thinkTriggers, ultraplanTriggers, ultrareviewTriggers, buddyTriggers]);
+  }, [isSearchingHistory, historyQuery, historyMatch, historyFailedMatch, cursorOffset, btwTriggers, imageRefPositions, memberMentionHighlights, slashCommandTriggers, tokenBudgetTriggers, slackChannelTriggers, displayedValue, voiceInterimRange, thinkTriggers, remotePlanTriggers, ultrareviewTriggers, buddyTriggers]);
   const {
     addNotification,
     removeNotification
@@ -758,17 +758,17 @@ function PromptInput({
     }
   }, [addNotification, removeNotification, thinkTriggers.length]);
   useEffect(() => {
-    if (feature('ULTRAPLAN') && ultraplanTriggers.length) {
+    if (feature('REMOTE_PARALLEL_MODE') && remotePlanTriggers.length) {
       addNotification({
-        key: 'ultraplan-active',
-        text: 'This prompt will launch an ultraplan session in Nexus on the web',
+        key: 'remote-plan-active',
+        text: 'This prompt will launch a remote-parallel-plan session in Nexus on the web',
         priority: 'immediate',
         timeoutMs: 5000
       });
     } else {
-      removeNotification('ultraplan-active');
+      removeNotification('remote-plan-active');
     }
-  }, [addNotification, removeNotification, ultraplanTriggers.length]);
+  }, [addNotification, removeNotification, remotePlanTriggers.length]);
   useEffect(() => {
     if (isUltrareviewEnabled() && ultrareviewTriggers.length) {
       addNotification({
@@ -2153,7 +2153,7 @@ function PromptInput({
     }} onCancel={() => setShowHistoryPicker(false)} />;
   }
 
-  // Show loop mode menu when requested (ant-only, eliminated from external builds)
+  // Show loop mode menu when requested (internal-only, eliminated from external builds)
   if (modelPickerElement) {
     return modelPickerElement;
   }

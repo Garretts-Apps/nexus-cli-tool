@@ -2,7 +2,7 @@
 /**
  * Ensure that any model codenames introduced here are also added to
  * scripts/excluded-strings.txt to avoid leaking them. Wrap any codename string
- * literals with process.env.USER_TYPE === 'ant' for Bun to remove the codenames
+ * literals with process.env.INTERNAL_BUILD === '1' for Bun to remove the codenames
  * during dead code elimination
  */
 import { getMainLoopModelOverride } from '../../state/sessionConfig.js'
@@ -177,7 +177,7 @@ export function getRuntimeMainLoopModel(params: {
  */
 export function getDefaultMainLoopModelSetting(): ModelName | ModelAlias {
   // Ants default to defaultModel from flag config, or Opus 1M if not configured
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     return (
       getAntModelOverrideConfig()?.defaultModel ??
       getDefaultOpusModel() + '[1m]'
@@ -397,7 +397,7 @@ export function renderModelName(model: ModelName): string {
   if (publicName) {
     return publicName
   }
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const resolved = parseUserSpecifiedModel(model)
     const antModel = resolveAntModel(model)
     if (antModel) {
@@ -482,7 +482,7 @@ export function parseUserSpecifiedModel(
     return getDefaultOpusModel() + (has1mTag ? '[1m]' : '')
   }
 
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const has1mAntTag = has1mContext(normalizedModel)
     const baseAntModel = normalizedModel.replace(/\[1m]$/i, '').trim()
 
@@ -555,7 +555,7 @@ export function isLegacyModelRemapEnabled(): boolean {
 
 export function modelDisplayString(model: ModelSetting): string {
   if (model === null) {
-    if (process.env.USER_TYPE === 'ant') {
+    if (process.env.INTERNAL_BUILD === '1') {
       return `Default for Ants (${renderDefaultModelSetting(getDefaultMainLoopModelSetting())})`
     } else if (isClaudeAISubscriber()) {
       return `Default (${getClaudeAiUserDefaultModelDescription()})`

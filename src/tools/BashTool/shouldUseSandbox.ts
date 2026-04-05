@@ -20,7 +20,7 @@ type SandboxInput = {
 // system (which prompts users) is the actual security control.
 function containsExcludedCommand(command: string): boolean {
   // Check dynamic config for disabled commands and substrings (only for ants)
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const disabledCommands = getFeatureValue_CACHED_MAY_BE_STALE<{
       commands: string[]
       substrings: string[]

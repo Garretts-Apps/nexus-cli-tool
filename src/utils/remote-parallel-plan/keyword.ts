@@ -26,8 +26,8 @@ const OPEN_TO_CLOSE: Record<string, string> = {
  * - Path/identifier-like context: immediately preceded or followed by
  *   `/`, `\`, or `-`, or followed by `.` + word char (file extension).
  *   `\b` sees a boundary at `-`, so `ultraplan-s` would otherwise
- *   match. This keeps `src/ultraplan/foo.ts`, `ultraplan.tsx`, and
- *   `--ultraplan-mode` from triggering while `ultraplan.` at a sentence
+ *   match. This keeps `src/remote-parallel-plan/foo.ts`, `remote-parallel-plan.tsx`, and
+ *   `--remote-parallel-plan-mode` from triggering while `ultraplan.` at a sentence
  *   end still does.
  *
  * - Followed by `?`: a question about the feature shouldn't invoke it.
@@ -38,7 +38,7 @@ const OPEN_TO_CLOSE: Record<string, string> = {
  *   not keyword detection), so `/rename ultraplan foo` never triggers.
  *   Without this, PromptInput would rainbow-highlight the word and show
  *   the "will launch ultraplan" notification even though submitting the
- *   input runs /rename, not /ultraplan.
+ *   input runs /rename, not /remote-parallel-plan.
  *
  * Shape matches findThinkingTriggerPositions (thinking.ts) so
  * PromptInput treats both trigger types uniformly.
@@ -94,7 +94,7 @@ function findKeywordTriggerPositions(
   return positions
 }
 
-export function findUltraplanTriggerPositions(text: string): TriggerPosition[] {
+export function findRemotePlanTriggerPositions(text: string): TriggerPosition[] {
   return findKeywordTriggerPositions(text, 'ultraplan')
 }
 
@@ -104,8 +104,8 @@ export function findUltrareviewTriggerPositions(
   return findKeywordTriggerPositions(text, 'ultrareview')
 }
 
-export function hasUltraplanKeyword(text: string): boolean {
-  return findUltraplanTriggerPositions(text).length > 0
+export function hasRemotePlanKeyword(text: string): boolean {
+  return findRemotePlanTriggerPositions(text).length > 0
 }
 
 export function hasUltrareviewKeyword(text: string): boolean {
@@ -117,8 +117,8 @@ export function hasUltrareviewKeyword(text: string): boolean {
  * prompt stays grammatical ("please ultraplan this" → "please plan this").
  * Preserves the user's casing of the "plan" suffix.
  */
-export function replaceUltraplanKeyword(text: string): string {
-  const [trigger] = findUltraplanTriggerPositions(text)
+export function replaceRemotePlanKeyword(text: string): string {
+  const [trigger] = findRemotePlanTriggerPositions(text)
   if (!trigger) return text
   const before = text.slice(0, trigger.start)
   const after = text.slice(trigger.end)

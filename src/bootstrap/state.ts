@@ -129,7 +129,7 @@ type State = {
     hasLoggedFirstMessage: boolean
     sessionId: string | null
   } | null
-  // Track slow operations for dev bar display (ant-only)
+  // Track slow operations for dev bar display (internal-only)
   slowOperations: Array<{
     operation: string
     durationMs: number
@@ -238,7 +238,7 @@ function getInitialState(): State {
     teleportedSessionInfo: null,
     // Track slow operations for dev bar display
     slowOperations: [],
-    ...(process.env.USER_TYPE === 'ant'
+    ...(process.env.INTERNAL_BUILD === '1'
       ? {
           replBridgeActive: false,
         }
@@ -1001,7 +1001,7 @@ const MAX_SLOW_OPERATIONS = 10
 const SLOW_OPERATION_TTL_MS = 10000
 
 export function addSlowOperation(operation: string, durationMs: number): void {
-  if (process.env.USER_TYPE !== 'ant') return
+  if (process.env.INTERNAL_BUILD !== '1') return
   // Skip tracking for editor sessions (user editing a prompt file in $EDITOR)
   // These are intentionally slow since the user is drafting text
   if (operation.includes('exec') && operation.includes('claude-prompt-')) {

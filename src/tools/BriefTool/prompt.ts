@@ -9,7 +9,7 @@ export const BRIEF_TOOL_PROMPT = `Send a message the user will read. Text outsid
 
 \`status\` labels intent: 'normal' when replying to what they just asked; 'proactive' when you're initiating — a scheduled task finished, a blocker surfaced during background work, you need input on something they haven't asked about. Set it honestly; downstream routing uses it.`
 
-export const BRIEF_PROACTIVE_SECTION = `## Talking to the user
+export const BRIEF_MODE_SECTION = `## Talking to the user
 
 ${BRIEF_TOOL_NAME} is where your replies go. Text outside it is visible if the user expands the detail view, but most won't — assume unread. Anything you want them to actually see goes through ${BRIEF_TOOL_NAME}. The failure mode: the real answer lives in plain text while ${BRIEF_TOOL_NAME} just says "done!" — they see "done!" and miss everything.
 

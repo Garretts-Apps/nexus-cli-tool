@@ -44,7 +44,7 @@ function getCachePath(): string {
 }
 
 function isModelCapabilitiesEligible(): boolean {
-  if (process.env.USER_TYPE !== 'ant') return false
+  if (process.env.INTERNAL_BUILD !== '1') return false
   if (getAPIProvider() !== 'firstParty') return false
   if (!isFirstPartyAnthropicBaseUrl()) return false
   return true

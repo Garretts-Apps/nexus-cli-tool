@@ -166,7 +166,7 @@ function denyAutoMemTool(tool: Tool, reason: string) {
 /**
  * Creates a canUseTool function that allows Read/Grep/Glob (unrestricted),
  * read-only Bash commands, and Edit/Write only for paths within the
- * auto-memory directory. Shared by extractMemories and autoDream.
+ * auto-memory directory. Shared by extractMemories and autoSummarize.
  */
 export function createAutoMemCanUseTool(memoryDir: string): CanUseToolFn {
   return async (tool: Tool, input: Record<string, unknown>) => {
@@ -534,7 +534,7 @@ export function initExtractMemories(): void {
     }
 
     if (!getFeatureValue_CACHED_MAY_BE_STALE('tengu_passport_quail', false)) {
-      if (process.env.USER_TYPE === 'ant' && !hasLoggedGateFailure) {
+      if (process.env.INTERNAL_BUILD === '1' && !hasLoggedGateFailure) {
         hasLoggedGateFailure = true
         logEvent('tengu_extract_memories_gate_disabled', {})
       }

@@ -169,7 +169,7 @@ export function useManageMCPConnections(
     null,
   )
   if (
-    (feature('KAIROS') || feature('KAIROS_CHANNELS')) &&
+    (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) &&
     channelPermCallbacksRef.current === null
   ) {
     channelPermCallbacksRef.current = createChannelPermissionCallbacks()
@@ -177,7 +177,7 @@ export function useManageMCPConnections(
   // Store callbacks in AppState so interactiveHandler.ts can reach them via
   // ctx.toolUseContext.getAppState(). One-time set — the ref is stable.
   useEffect(() => {
-    if (feature('KAIROS') || feature('KAIROS_CHANNELS')) {
+    if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) {
       const callbacks = channelPermCallbacksRef.current
       if (!callbacks) return
       // GrowthBook runtime gate — separate from channels so channels can
@@ -470,7 +470,7 @@ export function useManageMCPConnections(
           // Channel push: notifications/claude/channel → enqueue().
           // Gate decides whether to register the handler; connection stays
           // up either way (allowedMcpServers controls that).
-          if (feature('KAIROS') || feature('KAIROS_CHANNELS')) {
+          if (feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_CHANNELS')) {
             const gate = gateChannelServer(
               client.name,
               client.capabilities,
@@ -986,7 +986,7 @@ export function useManageMCPConnections(
         else if (serverConfig.scope === 'claudeai') counts.claudeai++
 
         if (
-          process.env.USER_TYPE === 'ant' &&
+          process.env.INTERNAL_BUILD === '1' &&
           !isMcpServerDisabled(name) &&
           (serverConfig.type === undefined || serverConfig.type === 'stdio') &&
           'command' in serverConfig
@@ -996,7 +996,7 @@ export function useManageMCPConnections(
       }
       logEvent('tengu_mcp_servers', {
         ...counts,
-        ...(process.env.USER_TYPE === 'ant' && stdioCommands.length > 0
+        ...(process.env.INTERNAL_BUILD === '1' && stdioCommands.length > 0
           ? {
               stdio_commands: stdioCommands
                 .sort()

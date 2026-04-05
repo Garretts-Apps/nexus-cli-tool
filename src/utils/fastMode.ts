@@ -2,7 +2,7 @@ import axios from 'axios'
 import { getOauthConfig, OAUTH_BETA_HEADER } from 'src/constants/oauth.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { getIsNonInteractiveSession, preferThirdPartyAuthentication } from '../bootstrap/state.js'
-import { getKairosActive } from '../state/sessionConfig.js'
+import { getAssistantModeActive } from '../state/sessionConfig.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -92,11 +92,11 @@ export function getFastModeUnavailableReason(): string | null {
 
   // Not available in the SDK unless explicitly opted in via --settings.
   // Assistant daemon mode is exempt — it's first-party orchestration, and
-  // kairosActive is set before this check runs (main.tsx:~1626 vs ~3249).
+  // assistantModeActive is set before this check runs (main.tsx:~1626 vs ~3249).
   if (
     getIsNonInteractiveSession() &&
     preferThirdPartyAuthentication() &&
-    !getKairosActive()
+    !getAssistantModeActive()
   ) {
     const flagFastMode = getSettingsForSource('flagSettings')?.fastMode
     if (!flagFastMode) {
@@ -393,7 +393,7 @@ export function resolveFastModeStatusFromCache(): void {
   if (orgStatus.status !== 'pending') {
     return
   }
-  const isAnt = process.env.USER_TYPE === 'ant'
+  const isAnt = process.env.INTERNAL_BUILD === '1'
   const cachedEnabled = getGlobalConfig().penguinModeOrgEnabled === true
   orgStatus =
     isAnt || cachedEnabled
@@ -425,7 +425,7 @@ export async function prefetchFastModeStatus(): Promise<void> {
   const hasUsableOAuth =
     getClaudeAIOAuthTokens()?.accessToken && hasProfileScope()
   if (!hasUsableOAuth && !apiKey) {
-    const isAnt = process.env.USER_TYPE === 'ant'
+    const isAnt = process.env.INTERNAL_BUILD === '1'
     const cachedEnabled = getGlobalConfig().penguinModeOrgEnabled === true
     orgStatus =
       isAnt || cachedEnabled
@@ -508,7 +508,7 @@ export async function prefetchFastModeStatus(): Promise<void> {
       // On failure: ants default to enabled (don't block internal users).
       // External users: fall back to the cached penguinModeOrgEnabled value;
       // if no positive cache, disable with network_error reason.
-      const isAnt = process.env.USER_TYPE === 'ant'
+      const isAnt = process.env.INTERNAL_BUILD === '1'
       const cachedEnabled = getGlobalConfig().penguinModeOrgEnabled === true
       orgStatus =
         isAnt || cachedEnabled

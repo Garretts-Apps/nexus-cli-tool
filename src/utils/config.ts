@@ -223,9 +223,9 @@ export type GlobalConfig = {
   }
   primaryApiKey?: string // Primary API key for the user when no environment variable is set, set via oauth (TODO: rename)
   hasAcknowledgedCostThreshold?: boolean
-  hasSeenPublicRepoModeNotice?: boolean // ant-only: whether the one-time public repo mode explainer has been shown
-  hasSeenUltraplanTerms?: boolean // ant-only: whether the one-time CCR terms notice has been shown in the ultraplan launch dialog
-  hasResetAutoModeOptInForDefaultOffer?: boolean // ant-only: one-shot migration guard, re-prompts churned auto-mode users
+  hasSeenPublicRepoModeNotice?: boolean // internal-only: whether the one-time public repo mode explainer has been shown
+  hasSeenRemotePlanTerms?: boolean // internal-only: whether the one-time CCR terms notice has been shown in the remote-parallel-plan launch dialog
+  hasResetAutoModeOptInForDefaultOffer?: boolean // internal-only: one-shot migration guard, re-prompts churned auto-mode users
   oauthAccount?: AccountInfo
   iterm2KeyBindingInstalled?: boolean // Legacy - keeping for backward compatibility
   editorMode?: EditorMode
@@ -396,7 +396,7 @@ export type GlobalConfig = {
   // Nexus usage tracking
   claudeCodeFirstTokenDate?: string // ISO timestamp of the user's first Nexus OAuth token
 
-  // Model switch callout tracking (ant-only)
+  // Model switch callout tracking (internal-only)
   modelSwitchCalloutDismissed?: boolean // Whether user chose "Don't show again"
   modelSwitchCalloutLastShown?: number // Timestamp of last shown (don't show for 24h)
   modelSwitchCalloutVersion?: string
@@ -448,7 +448,7 @@ export type GlobalConfig = {
   // Cached GrowthBook feature values
   cachedGrowthBookFeatures?: { [featureName: string]: unknown }
 
-  // Local GrowthBook overrides (ant-only, set via /config Gates tab).
+  // Local GrowthBook overrides (internal-only, set via /config Gates tab).
   // Checked after env-var overrides but before the real resolved value.
   growthBookOverrides?: { [featureName: string]: unknown }
 
@@ -531,7 +531,7 @@ export type GlobalConfig = {
   // PR status footer configuration (feature-flagged via GrowthBook)
   prStatusFooterEnabled?: boolean // Show PR review status in footer (default: true)
 
-  // Tmux live panel visibility (ant-only, toggled via Enter on tmux pill)
+  // Tmux live panel visibility (internal-only, toggled via Enter on tmux pill)
   tungstenPanelVisible?: boolean
 
   // Cached org-level fast mode status from the API.
@@ -550,10 +550,10 @@ export type GlobalConfig = {
   // undefined = no cache, null = extra usage enabled, string = disabled reason.
   cachedExtraUsageDisabledReason?: string | null
 
-  // Auto permissions notification tracking (ant-only)
+  // Auto permissions notification tracking (internal-only)
   autoPermissionsNotificationCount?: number // Number of times the auto permissions notification has been shown
 
-  // Speculation configuration (ant-only)
+  // Speculation configuration (internal-only)
   speculationEnabled?: boolean // Whether speculation is enabled (default: true)
 
 
@@ -876,7 +876,7 @@ let lastReadFileStats: { mtime: number; size: number } | null = null
 let configCacheHits = 0
 let configCacheMisses = 0
 // Session-total count of actual disk writes to the global config file.
-// Exposed for ant-only dev diagnostics (see inc-4552) so anomalous write
+// Exposed for internal-only dev diagnostics (see inc-4552) so anomalous write
 // rates surface in the UI before they corrupt ~/.claude.json.
 let globalConfigWriteCount = 0
 
@@ -1088,7 +1088,7 @@ export function getGlobalConfig(): GlobalConfig {
 /**
  * Returns the effective value of remoteControlAtStartup. Precedence:
  *   1. User's explicit config value (always wins — honors opt-out)
- *   2. CCR auto-connect default (ant-only build, GrowthBook-gated)
+ *   2. CCR auto-connect default (internal-only build, GrowthBook-gated)
  *   3. false (Remote Control must be explicitly opted into)
  */
 export function getRemoteControlAtStartup(): boolean {

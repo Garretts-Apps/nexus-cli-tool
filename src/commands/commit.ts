@@ -13,7 +13,7 @@ function getPromptContent(): string {
   const { commit: commitAttribution } = getAttributionTexts()
 
   let prefix = ''
-  if (process.env.USER_TYPE === 'ant' && isPublicRepoMode()) {
+  if (process.env.INTERNAL_BUILD === '1' && isPublicRepoMode()) {
     prefix = getPublicRepoModeInstructions() + '\n'
   }
 

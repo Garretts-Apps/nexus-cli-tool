@@ -273,7 +273,7 @@ function isDangerousClassifierPermission(
   toolName: string,
   ruleContent: string | undefined,
 ): boolean {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     // Tmux send-keys executes arbitrary shell, bypassing the classifier same as Bash(*)
     if (toolName === 'Tmux') return true
   }
@@ -958,7 +958,7 @@ export async function initializeToolPermissionContext({
   // Variable name kept for return-field compat; contains both shells.
   let overlyBroadBashPermissions: DangerousPermissionInfo[] = []
   if (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     !isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) &&
     process.env.CLAUDE_CODE_ENTRYPOINT !== 'local-agent'
   ) {
@@ -1066,7 +1066,7 @@ export function getAutoModeUnavailableNotification(
       base = 'auto mode unavailable for this model'
       break
   }
-  return process.env.USER_TYPE === 'ant'
+  return process.env.INTERNAL_BUILD === '1'
     ? `${base} · #claude-code-feedback`
     : base
 }
@@ -1118,7 +1118,7 @@ export async function verifyAutoModeGateAccess(
   const disableFastModeBreakerFires =
     !!autoModeConfig?.disableFastMode &&
     (!!fastMode ||
-      (process.env.USER_TYPE === 'ant' &&
+      (process.env.INTERNAL_BUILD === '1' &&
         mainModel.toLowerCase().includes('-fast')))
   const modelSupported =
     modelSupportsAutoMode(mainModel) && !disableFastModeBreakerFires

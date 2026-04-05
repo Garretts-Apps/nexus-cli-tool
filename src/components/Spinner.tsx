@@ -5,7 +5,7 @@ import * as React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { computeGlimmerIndex, computeShimmerSegments, SHIMMER_INTERVAL_MS } from '../bridge/bridgeStatusUtil.js';
 import { feature } from 'bun:bundle';
-import { getKairosActive, getUserMsgOptIn } from '../state/sessionConfig.js';
+import { getAssistantModeActive, getUserMsgOptIn } from '../state/sessionConfig.js';
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js';
 import { isEnvTruthy } from '../utils/envUtils.js';
 import { count } from '../utils/array.js';
@@ -67,14 +67,14 @@ export function SpinnerWithVerb(props: Props): React.ReactNode {
   // teammate view needs the real spinner (which shows teammate status).
   const viewingAgentTaskId = useAppState(s_0 => s_0.viewingAgentTaskId);
   // Hoisted to mount-time — this component re-renders at animation framerate.
-  const briefEnvEnabled = feature('KAIROS') || feature('KAIROS_BRIEF') ?
+  const briefEnvEnabled = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ?
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   useMemo(() => isEnvTruthy(process.env.CLAUDE_CODE_BRIEF), []) : false;
 
   // Runtime gate mirrors isBriefEnabled() but inlined — importing from
   // BriefTool.ts would leak tool-name strings into external builds. Single
   // spinner instance → hooks stay unconditional (two subs, negligible).
-  if ((feature('KAIROS') || feature('KAIROS_BRIEF')) && (getKairosActive() || getUserMsgOptIn() && (briefEnvEnabled || getFeatureValue_CACHED_MAY_BE_STALE('tengu_kairos_brief', false))) && isBriefOnly && !viewingAgentTaskId) {
+  if ((feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')) && (getAssistantModeActive() || getUserMsgOptIn() && (briefEnvEnabled || getFeatureValue_CACHED_MAY_BE_STALE('internal_assistant_brief', false))) && isBriefOnly && !viewingAgentTaskId) {
     return <BriefSpinner mode={props.mode} overrideMessage={props.overrideMessage} />;
   }
   return <SpinnerWithVerbInner {...props} />;
@@ -258,7 +258,7 @@ function SpinnerWithVerbInner({
   const showBtwTip = tipsEnabled && elapsedSnapshot > 30_000 && !getGlobalConfig().btwUseCount;
   const effectiveTip = contextTipsActive ? undefined : showClearTip && !nextTask ? 'Use /clear to start fresh when switching topics and free up context' : showBtwTip && !nextTask ? "Use /btw to ask a quick side question without interrupting Claude's current work" : spinnerTip;
 
-  // Budget text (ant-only) — shown above the tip line
+  // Budget text (internal-only) — shown above the tip line
   let budgetText: string | null = null;
   if (feature('TOKEN_BUDGET')) {
     const budget = getCurrentTurnTokenBudget();

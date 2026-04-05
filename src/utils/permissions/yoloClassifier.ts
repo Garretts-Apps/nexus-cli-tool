@@ -63,13 +63,13 @@ const EXTERNAL_PERMISSIONS_TEMPLATE: string = feature('TRANSCRIPT_CLASSIFIER')
   : ''
 
 const ANTHROPIC_PERMISSIONS_TEMPLATE: string =
-  feature('TRANSCRIPT_CLASSIFIER') && process.env.USER_TYPE === 'ant'
+  feature('TRANSCRIPT_CLASSIFIER') && process.env.INTERNAL_BUILD === '1'
     ? txtRequire(require('./yolo-classifier-prompts/permissions_anthropic.txt'))
     : ''
 /* eslint-enable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
 
 function isUsingExternalPermissions(): boolean {
-  if (process.env.USER_TYPE !== 'ant') return true
+  if (process.env.INTERNAL_BUILD !== '1') return true
   const config = getFeatureValue_CACHED_MAY_BE_STALE(
     'tengu_auto_mode_config',
     {} as AutoModeConfig,
@@ -156,7 +156,7 @@ async function maybeDumpAutoMode(
   timestamp: number,
   suffix?: string,
 ): Promise<void> {
-  if (process.env.USER_TYPE !== 'ant') return
+  if (process.env.INTERNAL_BUILD !== '1') return
   if (!isEnvTruthy(process.env.CLAUDE_CODE_DUMP_AUTO_MODE)) return
   const base = suffix ? `${timestamp}.${suffix}` : `${timestamp}`
   try {
@@ -684,7 +684,7 @@ function getClassifierThinkingConfig(
   model: string,
 ): [false | undefined, number] {
   if (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     resolveAntModel(model)?.alwaysOnThinking
   ) {
     return [undefined, 2048]
@@ -1332,7 +1332,7 @@ type AutoModeConfig = {
  * then the main loop model.
  */
 function getClassifierModel(): string {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const envModel = process.env.CLAUDE_CODE_AUTO_MODE_MODEL
     if (envModel) return envModel
   }
@@ -1347,7 +1347,7 @@ function getClassifierModel(): string {
 }
 
 /**
- * Resolve the XML classifier setting: ant-only env var takes precedence,
+ * Resolve the XML classifier setting: internal-only env var takes precedence,
  * then GrowthBook. Returns undefined when unset (caller decides default).
  */
 function resolveTwoStageClassifier():
@@ -1355,7 +1355,7 @@ function resolveTwoStageClassifier():
   | 'fast'
   | 'thinking'
   | undefined {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const env = process.env.CLAUDE_CODE_TWO_STAGE_CLASSIFIER
     if (env === 'fast' || env === 'thinking') return env
     if (isEnvTruthy(env)) return true
@@ -1377,7 +1377,7 @@ function isTwoStageClassifierEnabled(): boolean {
 }
 
 function isJsonlTranscriptEnabled(): boolean {
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const env = process.env.CLAUDE_CODE_JSONL_TRANSCRIPT
     if (isEnvTruthy(env)) return true
     if (isEnvDefinedFalsy(env)) return false

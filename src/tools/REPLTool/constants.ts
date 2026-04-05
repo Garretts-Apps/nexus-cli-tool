@@ -16,7 +16,7 @@ export const REPL_TOOL_NAME = 'REPL'
  *
  * SDK entrypoints (sdk-ts, sdk-py, sdk-cli) are NOT defaulted on — SDK
  * consumers script direct tool calls (Bash, Read, etc.) and REPL mode
- * hides those tools. USER_TYPE is a build-time --define, so the ant-native
+ * hides those tools. INTERNAL_BUILD is a build-time --define, so the ant-native
  * binary would otherwise force REPL mode on every SDK subprocess regardless
  * of the env the caller passes.
  */
@@ -24,7 +24,7 @@ export function isReplModeEnabled(): boolean {
   if (isEnvDefinedFalsy(process.env.NEXUS_REPL)) return false
   if (isEnvTruthy(process.env.CLAUDE_REPL_MODE)) return true
   return (
-    process.env.USER_TYPE === 'ant' &&
+    process.env.INTERNAL_BUILD === '1' &&
     process.env.NEXUS_ENTRYPOINT === 'cli'
   )
 }

@@ -15,14 +15,14 @@ export { asSystemPrompt, type SystemPrompt } from './systemPromptType.js'
 // Same pattern as prompts.ts — lazy require to avoid pulling the module
 // into non-proactive builds.
 /* eslint-disable @typescript-eslint/no-require-imports */
-const proactiveModule =
-  feature('PROACTIVE') || feature('KAIROS')
+const briefModeModule =
+  feature('BRIEF_MODE') || feature('ASSISTANT_MODE')
     ? (require('../proactive/index.js') as typeof import('../proactive/index.js'))
     : null
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 function isProactiveActive_SAFE_TO_CALL_ANYWHERE(): boolean {
-  return proactiveModule?.isProactiveActive() ?? false
+  return briefModeModule?.isProactiveActive() ?? false
 }
 
 /**
@@ -85,7 +85,7 @@ export function buildEffectiveSystemPrompt({
   // Log agent memory loaded event for main loop agents
   if (mainThreadAgentDefinition?.memory) {
     logEvent('tengu_agent_memory_loaded', {
-      ...(process.env.USER_TYPE === 'ant' && {
+      ...(process.env.INTERNAL_BUILD === '1' && {
         agent_type:
           mainThreadAgentDefinition.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       }),
@@ -102,7 +102,7 @@ export function buildEffectiveSystemPrompt({
   // add domain-specific behavior on top — same pattern as teammates.
   if (
     agentSystemPrompt &&
-    (feature('PROACTIVE') || feature('KAIROS')) &&
+    (feature('BRIEF_MODE') || feature('ASSISTANT_MODE')) &&
     isProactiveActive_SAFE_TO_CALL_ANYWHERE()
   ) {
     return asSystemPrompt([

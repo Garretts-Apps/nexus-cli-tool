@@ -57,7 +57,7 @@ import { runAgent } from './runAgent.js';
 import { renderGroupedAgentToolUse, renderToolResultMessage, renderToolUseErrorMessage, renderToolUseMessage, renderToolUseProgressMessage, renderToolUseRejectedMessage, renderToolUseTag, userFacingName, userFacingNameBackgroundColor } from './UI.js';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
-const proactiveModule = feature('PROACTIVE') || feature('KAIROS') ? require('../../proactive/index.js') as typeof import('../../proactive/index.js') : null;
+const briefModeModule = feature('BRIEF_MODE') || feature('ASSISTANT_MODE') ? require('../../proactive/index.js') as typeof import('../../proactive/index.js') : null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 // Progress display constants (for showing background hint)
@@ -109,7 +109,7 @@ const fullInputSchema = lazySchema(() => {
 // type, but call() destructures via the explicit AgentToolInput type below
 // which always includes all optional fields.
 export const inputSchema = lazySchema(() => {
-  const schema = feature('KAIROS') ? fullInputSchema() : fullInputSchema().omit({
+  const schema = feature('ASSISTANT_MODE') ? fullInputSchema() : fullInputSchema().omit({
     cwd: true
   });
 
@@ -431,7 +431,7 @@ export const AgentTool = buildTool({
     // Resolve effective isolation mode (explicit param overrides agent def)
     const effectiveIsolation = isolation ?? selectedAgent.isolation;
 
-    // Remote isolation: delegate to CCR. Gated ant-only — the guard enables
+    // Remote isolation: delegate to CCR. Gated internal-only — the guard enables
     // dead code elimination of the entire block for external builds.
     if ("external" === 'ant' && effectiveIsolation === 'remote') {
       const eligibility = await checkRemoteAgentEligibility();
@@ -564,8 +564,8 @@ export const AgentTool = buildTool({
     // executeForkedSlashCommand's fire-and-forget path; the
     // <task-notification> re-entry there is handled by the else branch
     // below (registerAsyncAgentTask + notifyOnCompletion).
-    const assistantForceAsync = feature('KAIROS') ? appState.kairosEnabled : false;
-    const shouldRunAsync = (run_in_background === true || selectedAgent.background === true || isCoordinator || forceAsync || assistantForceAsync || (proactiveModule?.isProactiveActive() ?? false)) && !isBackgroundTasksDisabled;
+    const assistantForceAsync = feature('ASSISTANT_MODE') ? appState.assistantModeEnabled : false;
+    const shouldRunAsync = (run_in_background === true || selectedAgent.background === true || isCoordinator || forceAsync || assistantForceAsync || (briefModeModule?.isProactiveActive() ?? false)) && !isBackgroundTasksDisabled;
     // Assemble the worker's tool pool independently of the parent's.
     // Workers always get their tools from assembleToolPool with their own
     // permission mode, so they aren't affected by the parent's tool
@@ -636,7 +636,7 @@ export const AgentTool = buildTool({
       description
     };
 
-    // Helper to wrap execution with a cwd override: explicit cwd arg (KAIROS)
+    // Helper to wrap execution with a cwd override: explicit cwd arg (ASSISTANT_MODE)
     // takes precedence over worktree isolation path.
     const cwdOverridePath = cwd ?? worktreeInfo?.worktreePath;
     const wrapWithCwd = <T,>(fn: () => T): T => cwdOverridePath ? runWithCwdOverride(cwdOverridePath, fn) : fn();

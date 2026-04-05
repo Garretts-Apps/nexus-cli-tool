@@ -46,14 +46,14 @@ function getCommitAndPRInstructions(): string {
   // your cover" instructions are the last line of defense against the model
   // volunteering an internal codename in a commit message.
   const publicRepoModeSection =
-    process.env.USER_TYPE === 'ant' && isPublicRepoMode()
+    process.env.INTERNAL_BUILD === '1' && isPublicRepoMode()
       ? getPublicRepoModeInstructions() + '\n'
       : ''
 
   if (!shouldIncludeGitInstructions()) return publicRepoModeSection
 
   // For ant users, use the short version pointing to skills
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     const skillsSection = !isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)
       ? `For git commits and pull requests, use the \`/commit\` and \`/commit-push-pr\` skills:
 - \`/commit\` - Create a git commit with staged changes

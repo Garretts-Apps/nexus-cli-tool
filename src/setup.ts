@@ -334,7 +334,7 @@ export async function setup(
   // overhead. NOT an early-return: the --dangerously-skip-permissions safety
   // gate, tengu_started beacon, and apiKeyHelper prefetch below must still run.
   if (!isBareMode()) {
-    if (process.env.USER_TYPE === 'ant') {
+    if (process.env.INTERNAL_BUILD === '1') {
       // Prime repo classification cache for auto-undercover mode. Default is
       // undercover ON until proven internal; if this resolves to internal, clear
       // the prompt cache so the next turn picks up the OFF state.
@@ -354,7 +354,7 @@ export async function setup(
       setImmediate(() => {
         void import('./utils/attributionHooks.js').then(
           ({ registerAttributionHooks }) => {
-            registerAttributionHooks() // Register attribution tracking hooks (ant-only feature)
+            registerAttributionHooks() // Register attribution tracking hooks (internal-only feature)
           },
         )
       })
@@ -414,7 +414,7 @@ export async function setup(
     }
 
     if (
-      process.env.USER_TYPE === 'ant' &&
+      process.env.INTERNAL_BUILD === '1' &&
       // Skip for Desktop's local agent mode — same trust model as CCR/BYOC
       // (trusted Anthropic-managed launcher intentionally pre-approving everything).
       // Precedent: permissionSetup.ts:861, applySettingsChange.ts:55 (PR #19116)

@@ -31,7 +31,7 @@ import { enqueueSdkEvent } from './sdkEventQueue.js'
 // externalMetadataToAppState.
 export type SessionExternalMetadata = {
   permission_mode?: string | null
-  is_ultraplan_mode?: boolean | null
+  is_remote_plan_mode?: boolean | null
   model?: string | null
   pending_action?: RequiresActionDetails | null
   // Opaque — typed at the emit site. Importing PostTurnSummaryOutput here

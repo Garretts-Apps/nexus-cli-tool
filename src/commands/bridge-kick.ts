@@ -54,7 +54,7 @@ const call: LocalCommandCall = async args => {
     return {
       type: 'text',
       value:
-        'No bridge debug handle registered. Remote Control must be connected (USER_TYPE=ant).',
+        'No bridge debug handle registered. Remote Control must be connected (INTERNAL_BUILD=1).',
     }
   }
 
@@ -192,7 +192,7 @@ const bridgeKick = {
   type: 'local',
   name: 'bridge-kick',
   description: 'Inject bridge failure states for manual recovery testing',
-  isEnabled: () => process.env.USER_TYPE === 'ant',
+  isEnabled: () => process.env.INTERNAL_BUILD === '1',
   supportsNonInteractive: false,
   load: () => Promise.resolve({ call }),
 } satisfies Command

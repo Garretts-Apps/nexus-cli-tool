@@ -156,7 +156,7 @@ import {
   setNeedsAutoModeExitAttachment,
   setNeedsPlanModeExitAttachment,
 } from '../bootstrap/state.js'
-import { getKairosActive, getSdkBetas } from '../state/sessionConfig.js'
+import { getAssistantModeActive, getSdkBetas } from '../state/sessionConfig.js'
 import type { QuerySource } from '../constants/querySource.js'
 import {
   getDeferredToolsDelta,
@@ -197,12 +197,12 @@ import { isEnvTruthy, getClaudeConfigHomeDir } from './envUtils.js'
 import { feature } from 'bun:bundle'
 /* eslint-disable @typescript-eslint/no-require-imports */
 const BRIEF_TOOL_NAME: string | null =
-  feature('KAIROS') || feature('KAIROS_BRIEF')
+  feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF')
     ? (
         require('../tools/BriefTool/prompt.js') as typeof import('../tools/BriefTool/prompt.js')
       ).BRIEF_TOOL_NAME
     : null
-const sessionTranscriptModule = feature('KAIROS')
+const sessionTranscriptModule = feature('ASSISTANT_MODE')
   ? (require('../services/sessionTranscript/sessionTranscript.js') as typeof import('../services/sessionTranscript/sessionTranscript.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -1433,8 +1433,8 @@ export function getDateChangeAttachments(
   // the /dream skill (1–5am local) finds it even if no compaction fires
   // today. Fire-and-forget; writeSessionTranscriptSegment buckets by
   // message timestamp so a multi-day gap flushes each day correctly.
-  if (feature('KAIROS')) {
-    if (getKairosActive() && messages !== undefined) {
+  if (feature('ASSISTANT_MODE')) {
+    if (getAssistantModeActive() && messages !== undefined) {
       sessionTranscriptModule?.flushOnDateChange(messages, currentDate)
     }
   }
@@ -3380,7 +3380,7 @@ async function getTaskReminderAttachments(
   }
 
   // Skip for ant users
-  if (process.env.USER_TYPE === 'ant') {
+  if (process.env.INTERNAL_BUILD === '1') {
     return []
   }
 
@@ -3534,7 +3534,7 @@ async function getTeammateMailboxAttachments(
   if (!isAgentSwarmsEnabled()) {
     return []
   }
-  if (process.env.USER_TYPE !== 'ant') {
+  if (process.env.INTERNAL_BUILD !== '1') {
     return []
   }
 
@@ -3895,7 +3895,7 @@ async function getVerifyPlanReminderAttachment(
   toolUseContext: ToolUseContext,
 ): Promise<Attachment[]> {
   if (
-    process.env.USER_TYPE !== 'ant' ||
+    process.env.INTERNAL_BUILD !== '1' ||
     !isEnvTruthy(process.env.CLAUDE_CODE_VERIFY_PLAN)
   ) {
     return []

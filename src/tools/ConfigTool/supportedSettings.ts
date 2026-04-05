@@ -61,10 +61,10 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
     type: 'boolean',
     description: 'Enable auto-memory',
   },
-  autoDreamEnabled: {
+  autoSummarizeEnabled: {
     source: 'settings',
     type: 'boolean',
-    description: 'Enable background memory consolidation',
+    description: 'Enable background memory summarization',
   },
   fileCheckpointingEnabled: {
     source: 'global',
@@ -131,7 +131,7 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
       'How to spawn teammates: "tmux" for traditional tmux, "in-process" for same process, "auto" to choose automatically',
     options: TEAMMATE_MODES,
   },
-  ...(process.env.USER_TYPE === 'ant'
+  ...(process.env.INTERNAL_BUILD === '1'
     ? {
         classifierPermissionsEnabled: {
           source: 'settings' as const,
@@ -161,7 +161,7 @@ export const SUPPORTED_SETTINGS: Record<string, SettingConfig> = {
         },
       }
     : {}),
-  ...(feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION')
+  ...(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_PUSH_NOTIFICATION')
     ? {
         taskCompleteNotifEnabled: {
           source: 'global' as const,

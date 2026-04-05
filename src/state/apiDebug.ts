@@ -5,7 +5,7 @@ import type { BetaMessageStreamParams } from '@anthropic-ai/sdk/resources/beta/m
 
 // Last API request for bug reports
 let lastAPIRequest: Omit<BetaMessageStreamParams, 'messages'> | null = null
-// Messages from the last API request (ant-only; reference, not clone).
+// Messages from the last API request (internal-only; reference, not clone).
 // Captures the exact post-compaction, CLAUDE.md-injected message set sent
 // to the API so /share's serialized_conversation.json reflects reality.
 let lastAPIRequestMessages: BetaMessageStreamParams['messages'] | null = null

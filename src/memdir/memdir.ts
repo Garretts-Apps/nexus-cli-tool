@@ -9,7 +9,7 @@ const teamMemPaths = feature('TEAMMEM')
   : null
 
 import { getOriginalCwd } from '../bootstrap/state.js'
-import { getKairosActive } from '../state/sessionConfig.js'
+import { getAssistantModeActive } from '../state/sessionConfig.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 /* eslint-enable @typescript-eslint/no-require-imports */
 import {
@@ -317,7 +317,7 @@ export function buildMemoryPrompt(params: {
 }
 
 /**
- * Assistant-mode daily-log prompt. Gated behind feature('KAIROS').
+ * Assistant-mode daily-log prompt. Gated behind feature('ASSISTANT_MODE').
  *
  * Assistant sessions are effectively perpetual, so the agent writes memories
  * append-only to a date-named log file rather than maintaining MEMORY.md as
@@ -425,12 +425,12 @@ export async function loadMemoryPrompt(): Promise<string | null> {
     false,
   )
 
-  // KAIROS daily-log mode takes precedence over TEAMMEM: the append-only
+  // ASSISTANT_MODE daily-log mode takes precedence over TEAMMEM: the append-only
   // log paradigm does not compose with team sync (which expects a shared
   // MEMORY.md that both sides read + write). Gating on `autoEnabled` here
   // means the !autoEnabled case falls through to the tengu_memdir_disabled
-  // telemetry block below, matching the non-KAIROS path.
-  if (feature('KAIROS') && autoEnabled && getKairosActive()) {
+  // telemetry block below, matching the non-ASSISTANT_MODE path.
+  if (feature('ASSISTANT_MODE') && autoEnabled && getAssistantModeActive()) {
     logMemoryDirCounts(getAutoMemPath(), {
       memory_type:
         'auto' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

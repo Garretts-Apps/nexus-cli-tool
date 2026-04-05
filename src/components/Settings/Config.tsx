@@ -131,7 +131,7 @@ export function Config({
   // opt-in. 'chat' written here is read at next startup by main.tsx which
   // sets userMsgOptIn if still entitled.
   /* eslint-disable @typescript-eslint/no-require-imports */
-  const showDefaultViewPicker = feature('KAIROS') || feature('KAIROS_BRIEF') ? (require('../../tools/BriefTool/BriefTool.js') as typeof import('../../tools/BriefTool/BriefTool.js')).isBriefEntitled() : false;
+  const showDefaultViewPicker = feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_BRIEF') ? (require('../../tools/BriefTool/BriefTool.js') as typeof import('../../tools/BriefTool/BriefTool.js')).isBriefEntitled() : false;
   /* eslint-enable @typescript-eslint/no-require-imports */
   const setAppState = useSetAppState();
   const [changes, setChanges] = useState<{
@@ -342,7 +342,7 @@ export function Config({
       });
     }
   },
-  // Fast mode toggle (ant-only, eliminated from external builds)
+  // Fast mode toggle (internal-only, eliminated from external builds)
   ...(isFastModeEnabled() && isFastModeAvailable() ? [{
     id: 'fastMode',
     label: `Fast mode (${FAST_MODE_MODEL_DISPLAY} only)`,
@@ -391,7 +391,7 @@ export function Config({
       });
     }
   }] : []),
-  // Speculation toggle (ant-only)
+  // Speculation toggle (internal-only)
   ...("external" === 'ant' ? [{
     id: 'speculationEnabled',
     label: 'Speculative execution',
@@ -655,7 +655,7 @@ export function Config({
     onChange: setTheme
   }, {
     id: 'notifChannel',
-    label: feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION') ? 'Local notifications' : 'Notifications',
+    label: feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_PUSH_NOTIFICATION') ? 'Local notifications' : 'Notifications',
     value: globalConfig.preferredNotifChannel,
     options: ['auto', 'iterm2', 'terminal_bell', 'iterm2_with_bell', 'kitty', 'ghostty', 'notifications_disabled'],
     type: 'enum',
@@ -669,7 +669,7 @@ export function Config({
         preferredNotifChannel: notifChannel
       });
     }
-  }, ...(feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION') ? [{
+  }, ...(feature('ASSISTANT_MODE') || feature('ASSISTANT_MODE_PUSH_NOTIFICATION') ? [{
     id: 'taskCompleteNotifEnabled',
     label: 'Push when idle',
     value: globalConfig.taskCompleteNotifEnabled ?? false,

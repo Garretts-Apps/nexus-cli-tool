@@ -113,7 +113,7 @@ export type AppState = DeepImmutable<{
   // Assistant mode fully enabled (settings + GrowthBook gate + trust).
   // Single source of truth - computed once in main.tsx before option
   // mutation, consumers read this instead of re-calling isAssistantMode().
-  kairosEnabled: boolean
+  assistantModeEnabled: boolean
   // Remote session URL for --remote mode (shown in footer indicator)
   remoteSessionUrl: string | undefined
   // Remote session WS state (`claude assistant` viewer). 'connected' means the
@@ -427,22 +427,22 @@ export type AppState = DeepImmutable<{
   effortValue?: EffortValue
   // Set synchronously in launchUltraplan before the detached flow starts.
   // Prevents duplicate launches during the ~5s window before
-  // ultraplanSessionUrl is set by teleportToRemote. Cleared by launchDetached
+  // remotePlanSessionUrl is set by teleportToRemote. Cleared by launchDetached
   // once the URL is set or on failure.
-  ultraplanLaunching?: boolean
-  // Active ultraplan CCR session URL. Set while the RemoteAgentTask runs;
+  remotePlanLaunchPending?: boolean
+  // Active remote-parallel-plan CCR session URL. Set while the RemoteAgentTask runs;
   // truthy disables the keyword trigger + rainbow. Cleared when the poll
   // reaches terminal state.
-  ultraplanSessionUrl?: string
-  // Approved ultraplan awaiting user choice (implement here vs fresh session).
-  // Set by RemoteAgentTask poll on approval; cleared by UltraplanChoiceDialog.
-  ultraplanPendingChoice?: { plan: string; sessionId: string; taskId: string }
-  // Pre-launch permission dialog. Set by /ultraplan (slash or keyword);
-  // cleared by UltraplanLaunchDialog on choice.
-  ultraplanLaunchPending?: { blurb: string }
+  remotePlanSessionUrl?: string
+  // Approved remote plan awaiting user choice (implement here vs fresh session).
+  // Set by RemoteAgentTask poll on approval; cleared by RemotePlanChoiceDialog.
+  remotePlanPendingChoice?: { plan: string; sessionId: string; taskId: string }
+  // Pre-launch permission dialog. Set by /remote-parallel-plan (slash or keyword);
+  // cleared by RemotePlanLaunchDialog on choice.
+  remotePlanLaunchPendingDialog?: { blurb: string }
   // Remote-harness side: set via set_permission_mode control_request,
-  // pushed to CCR external_metadata.is_ultraplan_mode by onChangeAppState.
-  isUltraplanMode?: boolean
+  // pushed to CCR external_metadata.is_remote_plan_mode by onChangeAppState.
+  isRemotePlanMode?: boolean
   // Always-on bridge: permission callbacks for bidirectional permission checks
   replBridgePermissionCallbacks?: BridgePermissionCallbacks
   // Channel permission callbacks — permission prompts over Telegram/iMessage/etc.
@@ -480,7 +480,7 @@ export function getDefaultAppState(): AppState {
     coordinatorTaskIndex: -1,
     viewSelectionMode: 'none',
     footerSelection: null,
-    kairosEnabled: false,
+    assistantModeEnabled: false,
     remoteSessionUrl: undefined,
     remoteConnectionStatus: 'connecting',
     remoteBackgroundTaskCount: 0,
