@@ -34,7 +34,7 @@ import { isMemoryFileAccess } from './sessionFileAccessHooks.js'
 import { getTranscriptPath } from './sessionStorage.js'
 import { readTranscriptForLoad } from './sessionStoragePortable.js'
 import { getInitialSettings } from './settings/settings.js'
-import { isUndercover } from './undercover.js'
+import { isPublicRepoMode } from './publicRepoMode.js'
 
 export type AttributionTexts = {
   commit: string
@@ -50,7 +50,7 @@ export type AttributionTexts = {
  * - Remote mode: returns session URL for attribution
  */
 export function getAttributionTexts(): AttributionTexts {
-  if (process.env.USER_TYPE === 'ant' && isUndercover()) {
+  if (process.env.USER_TYPE === 'ant' && isPublicRepoMode()) {
     return { commit: '', pr: '' }
   }
 

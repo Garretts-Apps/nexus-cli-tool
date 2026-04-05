@@ -12,9 +12,9 @@ import {
   getMaxBashTimeoutMs,
 } from '../../utils/timeouts.js'
 import {
-  getUndercoverInstructions,
-  isUndercover,
-} from '../../utils/undercover.js'
+  getPublicRepoModeInstructions,
+  isPublicRepoMode,
+} from '../../utils/publicRepoMode.js'
 import { AGENT_TOOL_NAME } from '../AgentTool/constants.js'
 import { FILE_EDIT_TOOL_NAME } from '../FileEditTool/constants.js'
 import { FILE_READ_TOOL_NAME } from '../FileReadTool/prompt.js'
@@ -45,12 +45,12 @@ function getCommitAndPRInstructions(): string {
   // hiding are mechanical and work regardless, but the explicit "don't blow
   // your cover" instructions are the last line of defense against the model
   // volunteering an internal codename in a commit message.
-  const undercoverSection =
-    process.env.USER_TYPE === 'ant' && isUndercover()
-      ? getUndercoverInstructions() + '\n'
+  const publicRepoModeSection =
+    process.env.USER_TYPE === 'ant' && isPublicRepoMode()
+      ? getPublicRepoModeInstructions() + '\n'
       : ''
 
-  if (!shouldIncludeGitInstructions()) return undercoverSection
+  if (!shouldIncludeGitInstructions()) return publicRepoModeSection
 
   // For ant users, use the short version pointing to skills
   if (process.env.USER_TYPE === 'ant') {

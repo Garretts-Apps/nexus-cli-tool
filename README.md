@@ -1,136 +1,101 @@
-# Claude Code's Entire Source Code Got Leaked via a Sourcemap in npm, Let's Talk About It
+# Nexus CLI Tool
 
-> **PS:** This breakdown is also available on [this blog](https://kuber.studio/blog/AI/Claude-Code's-Entire-Source-Code-Got-Leaked-via-a-Sourcemap-in-npm,-Let's-Talk-About-it) with a better reading experience and UX :)
+A powerful terminal-based IDE and development assistant built with TypeScript and React Ink.
 
-> **Note:** There's a non-zero chance this repo might be taken down. If you want to play around with it later or archive it yourself, feel free to **fork it** and bookmark the external blog link!
+## Features
 
----
+- **Interactive Terminal UI** - Full-featured terminal interface with syntax highlighting and responsive layouts
+- **File Management** - Read, write, edit, and search files with advanced glob and grep support
+- **Bash Integration** - Execute commands with full terminal emulation
+- **Architecture Support** - Built-in support for multiple coding languages and frameworks
+- **Memory Management** - Persistent memory and session state across interactions
+- **Tools & Extensibility** - Comprehensive tool ecosystem for development workflows
+- **Configuration** - Flexible configuration system for customization
 
-## ⚠️ Important Disclaimer
+## Quick Start
 
-**I did not leak these files.** I have simply provided an easy, documented way to access and study this codebase for research purposes. All files and information originate from public findings shared on Twitter/X. All credit for the discovery goes to the original source.
+### Installation
 
----
-
-Earlier today (March 31st, 2026) - **Chaofan Shou (@Fried_rice)** discovered something that Anthropic probably didn't want the world to see: the **entire source code** of Claude Code, Anthropic's official AI coding CLI, was sitting in plain sight on the npm registry via a sourcemap file bundled into the published package.
-
-[![The tweet announcing the leak](assets/x-post.png)](https://x.com/Fried_rice/status/2038894956459290963)
-
-This repository is a backup of that leaked source, providing a full breakdown of what's in it, how the leak happened, and the internal systems that were never meant to be public.
-
----
-
-## 🧐 How Did This Even Happen?
-
-When you publish a JavaScript/TypeScript package to npm, the build toolchain often generates **source map files** (`.map` files). These files bridge minified production code and the original source for debugging.
-
-The catch? **Source maps contain the original source code** embedded as strings inside a JSON file under the `sourcesContent` key.
-
-```json
-{
-  "version": 3,
-  "sources": ["../src/main.tsx", "../src/tools/BashTool.ts", "..."],
-  "sourcesContent": ["// The ENTIRE original source code of each file", "..."],
-  "mappings": "AAAA,SAAS,OAAO..."
-}
+```bash
+npm install
 ```
 
-By forgetting to add `*.map` to `.npmignore` or failing to disable source maps in production builds (Bun's default behavior), the entire raw source was shipped to the npm registry.
+### Running
 
-[![Claude Code source files exposed in npm package](assets/claude-npm-img.png)](assets/claude-npm-img.png)
+```bash
+npm start
+```
 
----
+### Testing
 
-## 🛠 What's Under the Hood?
+```bash
+npm test
+```
 
-Claude Code is not just a simple CLI. It's a massive **785KB `main.tsx`** entry point featuring a custom React terminal renderer (Ink), 40+ tools, and complex multi-agent orchestration.
+## Project Structure
 
-### 🐣 BUDDY - The Terminal Tamagotchi
-Inside [`src/buddy/`](./src/buddy/), there is a full **Tamagotchi-style companion system**.
-- **Deterministic Gacha:** Uses a Mulberry32 PRNG seeded from your `userId`.
-- **18 Species:** Ranging from Common (*Pebblecrab*) to Legendary (*Nebulynx*).
-- **Stats & Souls:** Every buddy has stats like `DEBUGGING`, `CHAOS`, and `SNARK`, with a "soul" description written by Claude.
-
-### 🕵️‍♂️ Undercover Mode - "Do Not Blow Your Cover"
-Anthropic employees use Claude Code to contribute to public repos. **Undercover Mode** ([`src/utils/undercover.ts`](./src/utils/undercover.ts)) prevents the AI from leaking internal info:
-- Blocks internal model codenames (e.g., *Capybara*, *Tengu*).
-- Hides the fact that the user is an AI.
-- Confirms that **"Tengu"** is likely the internal codename for Claude Code.
-
-### 🌙 The "Dream" System
-Claude Code "dreams" to consolidate memory. The **autoDream** service ([`src/services/autoDream/`](./src/services/autoDream/)) runs as a background subagent to:
-1. **Orient:** Read `MEMORY.md`.
-2. **Gather:** Find new signals from daily logs.
-3. **Consolidate:** Update durable memory files.
-4. **Prune:** Keep context efficient.
-
-### 🚀 KAIROS & ULTRAPLAN
-- **KAIROS:** An "always-on" proactive assistant that watches logs and acts without waiting for input.
-- **ULTRAPLAN:** Offloads complex tasks to a remote **Opus 4.6** session for up to 30 minutes of deep planning.
-
----
-
-## 📂 Architecture & Directory Structure
-
-```text
+```
 src/
-├── main.tsx                 # CLI Entrypoint (Commander.js + React/Ink)
-├── QueryEngine.ts           # Core LLM logic (~46K lines)
-├── Tool.ts                  # Base tool definitions
-├── tools/                   # 40+ Agent tools (Bash, Files, LSP, Web)
-├── services/                # Backend (MCP, OAuth, Analytics, Dreams)
-├── coordinator/             # Multi-agent orchestration (Swarm)
-├── bridge/                  # IDE Integration layer
-└── buddy/                   # The secret Tamagotchi system
+├── commands/          # CLI commands and workflows
+├── components/        # React/Ink UI components
+├── hooks/            # React hooks
+├── services/         # Core services (API, analytics, MCP)
+├── tools/            # Tool implementations
+├── utils/            # Utility functions
+├── types/            # TypeScript type definitions
+└── main.tsx          # Application entry point
 ```
 
----
+## Development
 
-## ⚙️ How to Use & Explore
+### Build
 
-### 📦 Prerequisites
-- **[Bun Runtime](https://bun.sh)** (Highly Recommended) or Node.js v18+
-- **TypeScript** installed globally
+```bash
+npm run build
+```
 
-### 🚀 Getting Started
+### Type Checking
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/claude-leaked.git
-    cd claude-leaked
-    ```
+```bash
+npm run type-check
+```
 
-2.  **Install Dependencies:**
-    ```bash
-    npm install
-    ```
+### Linting
 
-3.  **Build the Project:**
-    ```bash
-    npm run build
-    ```
+```bash
+npm run lint
+```
 
-4.  **Run the CLI:**
-    ```bash
-    node dist/main.js
-    ```
+## Technology Stack
 
----
+- **Runtime**: Bun
+- **Language**: TypeScript (strict mode)
+- **UI Framework**: React with Ink
+- **Testing**: Vitest
+- **Build**: Esbuild
 
-## 📈 SEO & Rankings
-**Keywords:** `Claude Code Leak`, `Anthropic Source Code`, `AI Agent Framework`, `Claude 3.5 Sonnet CLI`, `Tengu Anthropic`, `npm sourcemap leak`, `Open Source AI Agent`.
+## Configuration
 
----
+Global configuration is stored in `~/.clauderc` and includes settings for:
+- API keys and authentication
+- User preferences
+- Tool permissions
+- Session state
 
-## 📜 Credits & Legal
+Project-level configuration can be specified in `.claude/CLAUDE.md`.
 
-- **Discovery:** [Chaofan Shou (@Fried_rice)](https://x.com/Fried_rice)
-- **Source Post:** [Twitter/X Announcement](https://x.com/Fried_rice/status/2038894956459290963)
-- **Author of this Mirror:** [Yasas Banu](https://www.yasasbanuka.tech)
+## Contributing
 
-**Disclaimer:** All original source code is the proprietary property of **Anthropic PBC**. This repository is for educational and archival purposes only. **This is not an official Anthropic product.**
+Development follows these practices:
+- Write tests for new features
+- Maintain TypeScript strict mode compliance
+- Follow existing code patterns and conventions
+- All 172 tests must pass before committing
 
----
+## License
 
-### 📩 Contact
-For spamming reasons the email has been removed. 
+This project is proprietary software.
+
+## Support
+
+For issues, questions, or contributions, please refer to the project documentation or contact the development team.
