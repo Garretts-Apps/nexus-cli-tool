@@ -5,18 +5,25 @@
  *   - Whether a stream is currently active (connected / idle)
  *   - Cumulative event count for the current stream
  *   - Whether the stream is backed by the abstraction layer or direct SDK
- *   - An inline [X] abort hint when the stream is live
+ *   - An inline abort hint when the stream is live
  *
  * Color coding:
  *   green  = stream active and healthy
  *   yellow = stream active but slow / stalled
  *   dim    = idle (no active stream)
+ *
+ * Design: idle state is a single compact line; active state expands to a
+ * two-line layout — header with spinner + status badge, then a detail row
+ * with event count, rate, and backend. Abort hint appears only when an
+ * abort handler is wired up, keeping the idle state clean.
  */
 
 import figures from 'figures'
 import * as React from 'react'
 import { useCallback, useState } from 'react'
 import { Box, Text, useInterval } from '../ink.js'
+
+// ─── types ───────────────────────────────────────────────────────────────────
 
 export type StreamBackend = 'abstraction-layer' | 'direct-sdk' | 'unknown'
 
@@ -33,18 +40,114 @@ export type StreamState = {
   onAbort?: () => void
 }
 
-type StalledLevel = 'none' | 'stalled'
+type StalledLevel = 'healthy' | 'stalled'
 
-function detectStalled(eventsPerSec?: number): StalledLevel {
-  if (eventsPerSec === undefined) return 'none'
-  return eventsPerSec < 0.5 ? 'stalled' : 'none'
-}
+// ─── constants ───────────────────────────────────────────────────────────────
+
+/** Rotating braille spinner frames for the active stream indicator. */
+const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'] as const
 
 const BACKEND_LABEL: Record<StreamBackend, string> = {
-  'abstraction-layer': 'LLM abstraction layer',
-  'direct-sdk': 'direct SDK',
-  unknown: 'unknown backend',
+  'abstraction-layer': 'llm-layer',
+  'direct-sdk': 'direct-sdk',
+  unknown: 'unknown',
 }
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function detectStalled(eventsPerSec?: number): StalledLevel {
+  if (eventsPerSec === undefined) return 'healthy'
+  return eventsPerSec < 0.5 ? 'stalled' : 'healthy'
+}
+
+// ─── sub-components ───────────────────────────────────────────────────────────
+
+/** Idle indicator — a single dim line. */
+function IdleIndicator(): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text dimColor>{figures.circle}</Text>
+      <Text dimColor>stream idle</Text>
+    </Box>
+  )
+}
+
+/** Active stream header: spinner + status label + optional stall note. */
+function ActiveHeader({
+  spinner,
+  streamColor,
+  isStalled,
+  eventsPerSec,
+}: {
+  spinner: string
+  streamColor: 'success' | 'warning'
+  isStalled: boolean
+  eventsPerSec?: number
+}): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text color={streamColor}>{spinner}</Text>
+      <Text color={streamColor} bold>
+        stream active
+      </Text>
+      {isStalled && (
+        <Text color="warning">
+          — stalled ({eventsPerSec?.toFixed(1) ?? '0'} ev/s)
+        </Text>
+      )}
+    </Box>
+  )
+}
+
+/** Detail row: event count · rate · backend. */
+function StreamDetailRow({
+  eventCount,
+  eventsPerSec,
+  backend,
+  streamColor,
+}: {
+  eventCount: number
+  eventsPerSec?: number
+  backend: StreamBackend
+  streamColor: 'success' | 'warning'
+}): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={3} paddingLeft={2}>
+      <Box flexDirection="row" gap={1}>
+        <Text dimColor>events</Text>
+        <Text bold>{eventCount}</Text>
+      </Box>
+
+      {eventsPerSec !== undefined && (
+        <Box flexDirection="row" gap={1}>
+          <Text dimColor>rate</Text>
+          <Text color={streamColor}>{eventsPerSec.toFixed(1)}/s</Text>
+        </Box>
+      )}
+
+      <Box flexDirection="row" gap={1}>
+        <Text dimColor>via</Text>
+        <Text dimColor italic>
+          {BACKEND_LABEL[backend]}
+        </Text>
+      </Box>
+    </Box>
+  )
+}
+
+/** Abort hint — only rendered when an onAbort handler is present. */
+function AbortHint({ shortcut }: { shortcut: string }): React.ReactNode {
+  return (
+    <Box paddingLeft={2}>
+      <Text dimColor>
+        <Text bold color="error">[X]</Text>
+        {' '}press <Text bold>{shortcut}</Text> to abort
+      </Text>
+    </Box>
+  )
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
 
 type Props = {
   /**
@@ -63,9 +166,6 @@ type Props = {
   abortShortcut?: string
 }
 
-/** Rotating spinner frames for active stream indicator. */
-const SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
-
 export function StreamStatus({
   streamState,
   pollInterval = 500,
@@ -73,97 +173,66 @@ export function StreamStatus({
 }: Props): React.ReactNode {
   const [frame, setFrame] = useState(0)
 
+  // Ticker only runs while the stream is active — avoids unnecessary renders
+  // and prevents timer leaks when the component is kept mounted but idle.
   useInterval(() => {
-    setFrame(f => (f + 1) % SPINNER_FRAMES.length)
+    setFrame((f: number) => (f + 1) % SPINNER_FRAMES.length)
   }, streamState?.active ? pollInterval : null)
 
   const handleAbort = useCallback(() => {
     streamState?.onAbort?.()
   }, [streamState])
 
-  // Idle state
+  // ── Idle state ──────────────────────────────────────────────────────────
   if (!streamState?.active) {
-    return (
-      <Box flexDirection="row" gap={1}>
-        <Text dimColor>{figures.circle}</Text>
-        <Text dimColor>Stream idle</Text>
-      </Box>
-    )
+    return <IdleIndicator />
   }
 
-  const { eventCount, eventsPerSec, backend } = streamState
+  // ── Active state ─────────────────────────────────────────────────────────
+  const { eventCount, eventsPerSec, backend, onAbort } = streamState
   const stalledLevel = detectStalled(eventsPerSec)
   const isStalled = stalledLevel === 'stalled'
-  const streamColor = isStalled ? 'warning' : 'success'
-  const spinner = SPINNER_FRAMES[frame]
+  const streamColor: 'success' | 'warning' = isStalled ? 'warning' : 'success'
+  const spinner = SPINNER_FRAMES[frame]!
 
   return (
     <Box flexDirection="column" gap={0}>
-      {/* Active stream header */}
-      <Box flexDirection="row" gap={1}>
-        <Text color={streamColor}>{spinner}</Text>
-        <Text color={streamColor} bold>
-          Stream active
-        </Text>
-        {isStalled && (
-          <Text color="warning"> — stalled ({eventsPerSec?.toFixed(1) ?? '0'} ev/s)</Text>
-        )}
-      </Box>
+      <ActiveHeader
+        spinner={spinner}
+        streamColor={streamColor}
+        isStalled={isStalled}
+        eventsPerSec={eventsPerSec}
+      />
 
-      {/* Stats row */}
-      <Box flexDirection="row" gap={2} paddingLeft={2}>
-        {/* Event count */}
-        <Box flexDirection="row" gap={1}>
-          <Text dimColor>Events:</Text>
-          <Text bold>{eventCount}</Text>
-        </Box>
+      <StreamDetailRow
+        eventCount={eventCount}
+        eventsPerSec={eventsPerSec}
+        backend={backend}
+        streamColor={streamColor}
+      />
 
-        {/* Throughput */}
-        {eventsPerSec !== undefined && (
-          <Box flexDirection="row" gap={1}>
-            <Text dimColor>Rate:</Text>
-            <Text color={streamColor}>{eventsPerSec.toFixed(1)}/s</Text>
-          </Box>
-        )}
-
-        {/* Backend indicator */}
-        <Box flexDirection="row" gap={1}>
-          <Text dimColor>via</Text>
-          <Text dimColor italic>
-            {BACKEND_LABEL[backend]}
-          </Text>
-        </Box>
-      </Box>
-
-      {/* Abort control */}
-      {streamState.onAbort && (
-        <Box paddingLeft={2} paddingTop={0}>
-          <Text dimColor>
-            <Text bold dimColor={false} color="error">
-              [X]
-            </Text>
-            {' '}Press{' '}
-            <Text bold>{abortShortcut}</Text>
-            {' '}to abort stream
-          </Text>
-        </Box>
-      )}
+      {onAbort != null && <AbortHint shortcut={abortShortcut} />}
     </Box>
   )
 }
 
+// ─── hook ─────────────────────────────────────────────────────────────────────
+
 /**
  * Hook: creates and manages a StreamState object wired to an AbortController.
  *
+ * Returns a tuple of:
+ *   [streamState, startStream, endStream, addEvent]
+ *
  * @example
- *   const [streamState, startStream, endStream] = useStreamState()
+ *   const [streamState, startStream, endStream, addEvent] = useStreamState()
  *   // pass streamState to <StreamStatus streamState={streamState} />
  */
 export function useStreamState(): [
   StreamState,
   (backend?: StreamBackend) => AbortController,
   () => void,
-  (delta: number) => void,
+  (delta?: number) => void,
 ] {
   const [state, setState] = useState<StreamState>({
     active: false,
@@ -182,7 +251,7 @@ export function useStreamState(): [
       backend,
       onAbort: () => {
         controller.abort()
-        setState(prev => ({ ...prev, active: false }))
+        setState((prev: StreamState) => ({ ...prev, active: false, onAbort: undefined }))
       },
     })
     return controller
@@ -190,11 +259,11 @@ export function useStreamState(): [
 
   const endStream = useCallback(() => {
     abortRef.current = null
-    setState(prev => ({ ...prev, active: false, onAbort: undefined }))
+    setState((prev: StreamState) => ({ ...prev, active: false, onAbort: undefined }))
   }, [])
 
   const addEvent = useCallback((delta: number = 1) => {
-    setState(prev => ({
+    setState((prev: StreamState) => ({
       ...prev,
       eventCount: prev.eventCount + delta,
     }))

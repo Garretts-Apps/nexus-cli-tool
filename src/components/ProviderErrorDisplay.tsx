@@ -8,27 +8,32 @@
  * Usage:
  *   <ProviderErrorDisplay provider="bedrock" />
  *   <ProviderErrorDisplay provider="vertex" fallbackProvider="anthropic" />
+ *
+ * Design: a prominent warning header line; an indented detail block with
+ * consistent label/value rhythm; fallback callout using an arrow icon;
+ * optional docs + contribution hints in muted text. The component never
+ * crashes on unknown provider strings — it degrades gracefully.
  */
 
 import figures from 'figures'
 import * as React from 'react'
 import { Box, Text } from '../ink.js'
 
+// ─── types ───────────────────────────────────────────────────────────────────
+
 export type UnsupportedProvider = 'bedrock' | 'vertex' | 'foundry'
 export type SupportedProvider = 'anthropic'
-
-/** Providers that are stubs / not-yet-implemented. */
-const STUB_PROVIDERS = new Set<string>(['bedrock', 'vertex', 'foundry'])
-
-export function isUnsupportedProvider(provider: string): provider is UnsupportedProvider {
-  return STUB_PROVIDERS.has(provider)
-}
 
 type ProviderMeta = {
   displayName: string
   docsUrl: string
   eta: string
 }
+
+// ─── data ─────────────────────────────────────────────────────────────────────
+
+/** Providers that are stubs / not-yet-implemented. */
+const STUB_PROVIDERS = new Set<string>(['bedrock', 'vertex', 'foundry'])
 
 const PROVIDER_META: Record<UnsupportedProvider, ProviderMeta> = {
   bedrock: {
@@ -48,9 +53,69 @@ const PROVIDER_META: Record<UnsupportedProvider, ProviderMeta> = {
   },
 }
 
-const FALLBACK_META: Record<SupportedProvider, string> = {
-  anthropic: 'Anthropic API (claude.ai)',
+const FALLBACK_LABEL: Record<SupportedProvider, string> = {
+  anthropic: 'Anthropic API',
 }
+
+// ─── guards ───────────────────────────────────────────────────────────────────
+
+export function isUnsupportedProvider(provider: string): provider is UnsupportedProvider {
+  return STUB_PROVIDERS.has(provider)
+}
+
+// ─── sub-components ───────────────────────────────────────────────────────────
+
+/** The bold warning header line. */
+function ErrorHeader(): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text color="warning">{figures.warning}</Text>
+      <Text bold>Provider not yet implemented</Text>
+    </Box>
+  )
+}
+
+/** A single label / value detail row. */
+function DetailRow({
+  label,
+  children,
+}: {
+  label: string
+  children?: React.ReactNode
+}): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text dimColor>{label}</Text>
+      {children}
+    </Box>
+  )
+}
+
+/** Fallback callout with an arrow icon. */
+function FallbackRow({ label }: { label: string }): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text color="success">{figures.arrowRight}</Text>
+      <Text dimColor>using</Text>
+      <Text bold>{label}</Text>
+      <Text dimColor>instead</Text>
+    </Box>
+  )
+}
+
+/** Muted URL line. */
+function DocsRow({ url }: { url: string }): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      <Text dimColor>docs</Text>
+      <Text dimColor underline>
+        {url}
+      </Text>
+    </Box>
+  )
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
 
 type Props = {
   /** The provider that was selected but is not yet implemented. */
@@ -74,57 +139,34 @@ export function ProviderErrorDisplay({
   const displayName = meta?.displayName ?? provider
   const docsUrl = meta?.docsUrl
   const eta = meta?.eta ?? 'unknown'
-  const fallbackLabel = FALLBACK_META[fallbackProvider]
+  const fallbackLabel = FALLBACK_LABEL[fallbackProvider]
 
   return (
     <Box flexDirection="column" gap={0}>
-      {/* Error badge */}
-      <Box flexDirection="row" gap={1}>
-        <Text color="warning">{figures.warning}</Text>
-        <Text bold>Provider not yet implemented</Text>
-      </Box>
+      {/* ── Warning header ── */}
+      <ErrorHeader />
 
-      {/* Main message */}
-      <Box paddingLeft={2} flexDirection="column" gap={0}>
-        <Box flexDirection="row" gap={1}>
-          <Text dimColor>Selected:</Text>
-          <Text bold color="warning">
-            {displayName}
-          </Text>
+      {/* ── Detail block (indented 2 chars) ── */}
+      <Box flexDirection="column" gap={0} paddingLeft={2}>
+        {/* Selected provider + status */}
+        <DetailRow label="selected">
+          <Text color="warning" bold>{displayName}</Text>
           <Text dimColor>— status: {eta}</Text>
-        </Box>
+        </DetailRow>
 
-        {/* Fallback notice */}
-        <Box flexDirection="row" gap={1}>
-          <Text color="success">{figures.arrowRight}</Text>
-          <Text>
-            Using{' '}
-            <Text bold>{fallbackLabel}</Text>
-            {' '}instead
-          </Text>
-        </Box>
+        {/* Fallback provider */}
+        <FallbackRow label={fallbackLabel} />
 
-        {/* Docs hint */}
-        {showDocsHint && docsUrl && (
-          <Box paddingTop={1}>
-            <Text dimColor>
-              Implementation status:{' '}
-              <Text dimColor underline>
-                {docsUrl}
-              </Text>
-            </Text>
-          </Box>
+        {/* Docs URL */}
+        {showDocsHint && docsUrl != null && (
+          <DocsRow url={docsUrl} />
         )}
 
         {/* Contribute hint */}
         {showDocsHint && (
           <Box>
             <Text dimColor>
-              See{' '}
-              <Text bold dimColor={false}>
-                PROVIDERS.md
-              </Text>
-              {' '}for adapter implementation guidance.
+              see <Text bold dimColor={false}>PROVIDERS.md</Text> for adapter implementation guidance
             </Text>
           </Box>
         )}
@@ -132,6 +174,8 @@ export function ProviderErrorDisplay({
     </Box>
   )
 }
+
+// ─── utility ──────────────────────────────────────────────────────────────────
 
 /**
  * Utility: given any provider string, return a ProviderErrorDisplay if the

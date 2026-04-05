@@ -6,8 +6,10 @@ import { Box, Text } from '../../ink.js';
 import { useAppState } from '../../state/AppState.js';
 import { isClaudeAISubscriber } from '../../utils/auth.js';
 import { openBrowser } from '../../utils/browser.js';
-import { CLAUDE_IN_CHROME_MCP_SERVER_NAME, openInChrome } from '../../utils/claudeInChrome/common.js';
-import { isChromeExtensionInstalled } from '../../utils/claudeInChrome/setup.js';
+// Stubs: claudeInChrome feature has been removed
+const CLAUDE_IN_CHROME_MCP_SERVER_NAME = 'claude-in-chrome-deprecated';
+const openInChrome = async () => {};
+const isChromeExtensionInstalled = () => false;
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js';
 import { env } from '../../utils/env.js';
 import { isRunningOnHomespace } from '../../utils/envUtils.js';

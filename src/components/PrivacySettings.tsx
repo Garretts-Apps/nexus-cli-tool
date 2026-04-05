@@ -10,6 +10,9 @@
  *   green  = no-telemetry (most private)
  *   yellow = essential-traffic
  *   default/dim = standard
+ *
+ * Design: header badge + description on one line; data-flow table with
+ * consistent column alignment; env-var hint rendered as inline code tokens.
  */
 
 import figures from 'figures'
@@ -17,25 +20,26 @@ import * as React from 'react'
 import { Box, Text } from '../ink.js'
 import { isTelemetryEnabled } from '../utils/telemetry/index.js'
 
+// ─── types ───────────────────────────────────────────────────────────────────
+
 export type PrivacyLevel = 'no-telemetry' | 'essential-traffic' | 'default'
 
 type DataFlow = {
   label: string
   enabled: boolean
-  description: string
+  note: string
 }
 
+// ─── detection ───────────────────────────────────────────────────────────────
+
 function detectPrivacyLevel(): PrivacyLevel {
-  // TELEMETRY_MODE=noop disables all telemetry data flows
   if (!isTelemetryEnabled()) return 'no-telemetry'
-  // DISABLE_TELEMETRY / ANTHROPIC_DISABLE_TELEMETRY flags
   if (
     process.env.DISABLE_TELEMETRY === '1' ||
     process.env.ANTHROPIC_DISABLE_TELEMETRY === '1'
   ) {
     return 'no-telemetry'
   }
-  // No analytics env var
   if (process.env.DISABLE_ANALYTICS === '1') return 'essential-traffic'
   return 'default'
 }
@@ -48,48 +52,37 @@ function buildDataFlows(level: PrivacyLevel): DataFlow[] {
     {
       label: 'API requests',
       enabled: true,
-      description: 'LLM API calls (always required)',
+      note: 'LLM API calls (always required)',
     },
     {
       label: 'OTel metrics',
       enabled: !isNoop,
-      description: 'OpenTelemetry counters and spans',
+      note: 'OpenTelemetry counters and spans',
     },
     {
       label: 'Usage analytics',
       enabled: !isNoop && !isEssential,
-      description: 'Session-level usage statistics',
+      note: 'Session-level usage statistics',
     },
     {
       label: 'Error telemetry',
       enabled: !isNoop && !isEssential,
-      description: 'Sentry / error event reporting',
+      note: 'Sentry / error event reporting',
     },
     {
       label: 'Feature flags',
       enabled: !isNoop,
-      description: 'GrowthBook feature-flag polling',
+      note: 'GrowthBook feature-flag polling',
     },
   ]
 }
 
-type Props = {
-  /** Override detected privacy level for display purposes. */
-  privacyLevel?: PrivacyLevel
-  /** Show the per-flow breakdown table. @default true */
-  showFlows?: boolean
-}
+// ─── metadata maps ────────────────────────────────────────────────────────────
 
 const LEVEL_COLOR: Record<PrivacyLevel, 'success' | 'warning' | undefined> = {
   'no-telemetry': 'success',
   'essential-traffic': 'warning',
   default: undefined,
-}
-
-const LEVEL_LABEL: Record<PrivacyLevel, string> = {
-  'no-telemetry': 'no-telemetry',
-  'essential-traffic': 'essential-traffic',
-  default: 'default',
 }
 
 const LEVEL_ICON: Record<PrivacyLevel, string> = {
@@ -104,61 +97,88 @@ const LEVEL_DESCRIPTION: Record<PrivacyLevel, string> = {
   default: 'Standard operation — analytics and telemetry enabled',
 }
 
+// ─── sub-components ───────────────────────────────────────────────────────────
+
+/** Pill-style mode badge used in the header. */
+function LevelBadge({
+  level,
+}: {
+  level: PrivacyLevel
+}): React.ReactNode {
+  const color = LEVEL_COLOR[level]
+  const icon = LEVEL_ICON[level]
+  return (
+    <Box flexDirection="row" gap={0}>
+      <Text dimColor>[</Text>
+      <Text color={color} bold>
+        {' '}{icon} {level}{' '}
+      </Text>
+      <Text dimColor>]</Text>
+    </Box>
+  )
+}
+
+/** A single data-flow row: status icon · label · note. */
+function FlowRow({ flow }: { flow: DataFlow; key?: React.Key }): React.ReactNode {
+  return (
+    <Box flexDirection="row" gap={1}>
+      {flow.enabled ? (
+        <Text color="success">{figures.tick}</Text>
+      ) : (
+        <Text color="error">{figures.cross}</Text>
+      )}
+      <Text bold={flow.enabled} dimColor={!flow.enabled} wrap="truncate-end">
+        {flow.label}
+      </Text>
+      <Text dimColor>— {flow.note}</Text>
+    </Box>
+  )
+}
+
+/** Inline env-var token rendered with bold contrast. */
+function EnvVar({ name }: { name: string }): React.ReactNode {
+  return <Text bold>{name}</Text>
+}
+
+// ─── component ────────────────────────────────────────────────────────────────
+
+type Props = {
+  /** Override detected privacy level for display purposes. */
+  privacyLevel?: PrivacyLevel
+  /** Show the per-flow breakdown table. @default true */
+  showFlows?: boolean
+}
+
 export function PrivacySettings({
   privacyLevel,
   showFlows = true,
 }: Props): React.ReactNode {
   const level = privacyLevel ?? detectPrivacyLevel()
   const flows = buildDataFlows(level)
-  const levelColor = LEVEL_COLOR[level]
-  const icon = LEVEL_ICON[level]
 
   return (
     <Box flexDirection="column" gap={0}>
-      {/* Header */}
-      <Box flexDirection="row" gap={1}>
+      {/* ── Header: label + badge + description ── */}
+      <Box flexDirection="row" gap={1} alignItems="flex-start">
         <Text bold>Privacy</Text>
-        <Text dimColor>|</Text>
-        <Text color={levelColor}>{icon} </Text>
-        <Text color={levelColor} bold>
-          {LEVEL_LABEL[level]}
-        </Text>
+        <LevelBadge level={level} />
+        <Text dimColor>{LEVEL_DESCRIPTION[level]}</Text>
       </Box>
 
-      {/* Description */}
-      <Text dimColor>{LEVEL_DESCRIPTION[level]}</Text>
-
-      {/* Data flow table */}
+      {/* ── Data-flow table ── */}
       {showFlows && (
-        <Box flexDirection="column" paddingTop={1}>
+        <Box flexDirection="column" paddingTop={1} paddingLeft={0}>
           {flows.map((flow, i) => (
-            <Box key={i} flexDirection="row" gap={1}>
-              {flow.enabled ? (
-                <Text color="success">{figures.tick}</Text>
-              ) : (
-                <Text color="error">{figures.cross}</Text>
-              )}
-              <Text bold={false} wrap="truncate-end">
-                {flow.label}
-              </Text>
-              <Text dimColor>— {flow.description}</Text>
-            </Box>
+            <FlowRow key={i} flow={flow} />
           ))}
         </Box>
       )}
 
-      {/* Quick-toggle hint */}
+      {/* ── Quick-toggle hint ── */}
       <Box paddingTop={1}>
         <Text dimColor>
-          Set{' '}
-          <Text bold dimColor={false}>
-            TELEMETRY_MODE=noop
-          </Text>{' '}
-          for zero-overhead mode or{' '}
-          <Text bold dimColor={false}>
-            DISABLE_ANALYTICS=1
-          </Text>{' '}
-          for essential-traffic.
+          Set <EnvVar name="TELEMETRY_MODE=noop" /> for zero-overhead
+          {' '}or <EnvVar name="DISABLE_ANALYTICS=1" /> for essential-traffic.
         </Text>
       </Box>
     </Box>

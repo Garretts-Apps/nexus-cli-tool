@@ -110,8 +110,12 @@ import { getActiveAgentsFromList, getAgentDefinitionsWithOverrides, isBuiltInAge
 import type { LogOption } from './types/logs.js';
 import type { Message as MessageType } from './types/message.js';
 import { assertMinVersion } from './utils/autoUpdater.js';
-import { CLAUDE_IN_CHROME_SKILL_HINT, CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER } from './utils/claudeInChrome/prompt.js';
-import { setupClaudeInChrome, shouldAutoEnableClaudeInChrome, shouldEnableClaudeInChrome } from './utils/claudeInChrome/setup.js';
+// Stubs: claudeInChrome feature has been removed
+const CLAUDE_IN_CHROME_SKILL_HINT = '';
+const CLAUDE_IN_CHROME_SKILL_HINT_WITH_WEBBROWSER = '';
+const setupClaudeInChrome = async () => {};
+const shouldAutoEnableClaudeInChrome = () => false;
+const shouldEnableClaudeInChrome = () => false;
 import { getContextWindowForModel } from './utils/context.js';
 import { loadConversationForResume } from './utils/conversationRecovery.js';
 import { buildDeepLinkBanner } from './utils/deepLink/banner.js';
@@ -157,7 +161,9 @@ import { excludeCommandsByServer, excludeResourcesByServer } from 'src/services/
 import { isXaaEnabled } from 'src/services/mcp/xaaIdpLogin.js';
 import { getRelevantTips } from 'src/services/tips/tipRegistry.js';
 import { logContextMetrics } from 'src/utils/api.js';
-import { CLAUDE_IN_CHROME_MCP_SERVER_NAME, isClaudeInChromeMCPServer } from 'src/utils/claudeInChrome/common.js';
+// Stub: claudeInChrome feature has been removed
+const CLAUDE_IN_CHROME_MCP_SERVER_NAME = 'claude-in-chrome-deprecated';
+const isClaudeInChromeMCPServer = () => false;
 import { registerCleanup } from 'src/utils/cleanupRegistry.js';
 import { eagerParseCliFlag } from 'src/utils/cliArgs.js';
 import { createEmptyAttributionState } from 'src/utils/commitAttribution.js';
@@ -1509,15 +1515,8 @@ async function run(): Promise<CommanderCommand> {
         let reservedNameError: string | null = null;
         if (nonSdkConfigNames.some(isClaudeInChromeMCPServer)) {
           reservedNameError = `Invalid MCP configuration: "${CLAUDE_IN_CHROME_MCP_SERVER_NAME}" is a reserved MCP name.`;
-        } else if (feature('CHICAGO_MCP')) {
-          const {
-            isComputerUseMCPServer,
-            COMPUTER_USE_MCP_SERVER_NAME
-          } = await import('src/utils/computerUse/common.js');
-          if (nonSdkConfigNames.some(isComputerUseMCPServer)) {
-            reservedNameError = `Invalid MCP configuration: "${COMPUTER_USE_MCP_SERVER_NAME}" is a reserved MCP name.`;
-          }
         }
+        // computerUse feature has been removed - skip CHICAGO_MCP validation
         if (reservedNameError) {
           // stderr+exit(1) — a throw here becomes a silent unhandled
           // rejection in stream-json mode (void main() in cli.tsx).
@@ -1640,29 +1639,7 @@ async function run(): Promise<CommanderCommand> {
     // `type: 'stdio'`. An enterprise-config ant with the GB gate on would
     // otherwise process.exit(1). Chrome has the same latent issue but has
     // shipped without incident; chicago places itself correctly.
-    if (feature('CHICAGO_MCP') && getPlatform() === 'macos' && !getIsNonInteractiveSession()) {
-      try {
-        const {
-          getChicagoEnabled
-        } = await import('src/utils/computerUse/gates.js');
-        if (getChicagoEnabled()) {
-          const {
-            setupComputerUseMCP
-          } = await import('src/utils/computerUse/setup.js');
-          const {
-            mcpConfig,
-            allowedTools: cuTools
-          } = setupComputerUseMCP();
-          dynamicMcpConfig = {
-            ...dynamicMcpConfig,
-            ...mcpConfig
-          };
-          allowedTools.push(...cuTools);
-        }
-      } catch (error) {
-        logForDebugging(`[Computer Use MCP] Setup failed: ${errorMessage(error)}`);
-      }
-    }
+    // Computer Use feature has been removed - skip CHICAGO_MCP setup
 
     // Store additional directories for CLAUDE.md loading (controlled by env var)
     setAdditionalDirectoriesForClaudeMd(addDir);
