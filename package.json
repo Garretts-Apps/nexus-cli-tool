@@ -1,9 +1,15 @@
 {
   "name": "nexus-cli-tool",
   "version": "0.1.0",
+  "description": "A powerful terminal-based IDE and development assistant",
   "private": true,
   "type": "module",
+  "bin": {
+    "nexus": "./bin/nexus.js"
+  },
   "scripts": {
+    "start": "bun src/main.tsx",
+    "build": "bun build src/main.tsx --outdir dist --target bun",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
